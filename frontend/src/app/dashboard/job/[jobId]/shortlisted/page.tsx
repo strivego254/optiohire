@@ -13,7 +13,7 @@ export default function ShortlistedPage() {
   const params = useParams()
   const router = useRouter()
   const jobId = params.jobId as string
-  const { user } = useAuth()
+  const { user, loading: authLoading } = useAuth()
 
   const [candidates, setCandidates] = useState<Candidate[]>([])
   const [loading, setLoading] = useState(true)
@@ -22,8 +22,17 @@ export default function ShortlistedPage() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [meetingLink, setMeetingLink] = useState<string>('')
 
+  // STRICT: Admin should NOT access HR dashboard
   useEffect(() => {
-    if (!user) return
+    if (authLoading) return
+    if (user && user.role === 'admin') {
+      router.push('/admin')
+      return
+    }
+  }, [user, authLoading, router])
+
+  useEffect(() => {
+    if (!user || user.role === 'admin') return
     fetchCandidates()
     fetchMeetingLink()
   }, [jobId, user])

@@ -28,9 +28,9 @@ export default function AdminCompaniesPage() {
   const [total, setTotal] = useState(0)
 
   useEffect(() => {
-    // Check if user is admin
+    // STRICT: Only admin can access
     if (user && user.role !== 'admin') {
-      router.push('/dashboard')
+      router.push('/admin') // Redirect to admin dashboard, not HR dashboard
       return
     }
     if (!user) {

@@ -19,14 +19,35 @@ export async function getAllUsers(req: Request, res: Response) {
       params.push(`%${search}%`)
     }
 
+    // Check if admin_approval_status and admin_permissions columns exist
+    const { rows: colCheck } = await query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'users' 
+      AND column_name IN ('admin_approval_status', 'admin_permissions')
+    `)
+    
+    const hasApprovalStatus = colCheck.some((r: any) => r.column_name === 'admin_approval_status')
+    const hasPermissions = colCheck.some((r: any) => r.column_name === 'admin_permissions')
+    
+    const selectFields = hasApprovalStatus && hasPermissions
+      ? 'user_id, email, role, is_active, created_at, admin_approval_status, admin_permissions'
+      : hasApprovalStatus
+      ? 'user_id, email, role, is_active, created_at, admin_approval_status, NULL::jsonb as admin_permissions'
+      : hasPermissions
+      ? 'user_id, email, role, is_active, created_at, NULL::text as admin_approval_status, admin_permissions'
+      : 'user_id, email, role, is_active, created_at, NULL::text as admin_approval_status, NULL::jsonb as admin_permissions'
+
     const { rows: users } = await query<{
       user_id: string
       email: string
       role: string
       is_active: boolean
       created_at: string
+      admin_approval_status?: string | null
+      admin_permissions?: Record<string, boolean> | null
     }>(
-      `SELECT user_id, email, role, is_active, created_at 
+      `SELECT ${selectFields}
        FROM users 
        ${whereClause}
        ORDER BY created_at DESC 
@@ -53,7 +74,79 @@ export async function getAllUsers(req: Request, res: Response) {
 export async function updateUser(req: Request, res: Response) {
   try {
     const { userId } = req.params
-    const { role, is_active } = req.body
+    const { role, is_active, admin_permissions } = req.body
+    const authReq = req as AuthRequest
+    const currentUserId = authReq.userId
+
+    // STRICT: Prevent admin from deactivating themselves
+    if (currentUserId === userId && is_active === false) {
+      return res.status(403).json({ error: 'You cannot deactivate your own account' })
+    }
+
+    // STRICT: Prevent admin from removing their own admin role
+    if (currentUserId === userId && role && role !== 'admin') {
+      return res.status(403).json({ error: 'You cannot remove your own admin role' })
+    }
+
+    // If promoting to admin, require approval (set admin_approval_status to 'pending')
+    if (role === 'admin') {
+      const { rows: userRows } = await query<{ role: string }>(
+        `SELECT role FROM users WHERE user_id = $1`,
+        [userId]
+      )
+      
+      if (userRows.length === 0) {
+        return res.status(404).json({ error: 'User not found' })
+      }
+
+      // If user is not already admin, set approval status to pending
+      if (userRows[0].role !== 'admin') {
+        const updates: string[] = []
+        const params: any[] = []
+        let paramIndex = 1
+
+        updates.push(`role = $${paramIndex++}`)
+        params.push('admin')
+        
+        // Check if admin_approval_status column exists
+        const { rows: colCheck } = await query(`
+          SELECT column_name 
+          FROM information_schema.columns 
+          WHERE table_name = 'users' AND column_name = 'admin_approval_status'
+        `)
+        
+        if (colCheck.length > 0) {
+          updates.push(`admin_approval_status = $${paramIndex++}`)
+          params.push('pending')
+        }
+
+        // Check if admin_permissions column exists
+        const { rows: permCheck } = await query(`
+          SELECT column_name 
+          FROM information_schema.columns 
+          WHERE table_name = 'users' AND column_name = 'admin_permissions'
+        `)
+        
+        if (permCheck.length > 0 && admin_permissions) {
+          updates.push(`admin_permissions = $${paramIndex++}::jsonb`)
+          params.push(JSON.stringify(admin_permissions))
+        }
+
+        updates.push(`updated_at = now()`)
+        params.push(userId)
+
+        await query(
+          `UPDATE users SET ${updates.join(', ')} WHERE user_id = $${paramIndex}`,
+          params
+        )
+
+        return res.json({ 
+          success: true, 
+          message: 'Admin role assigned. Approval required.',
+          requires_approval: true 
+        })
+      }
+    }
 
     const updates: string[] = []
     const params: any[] = []
@@ -66,6 +159,34 @@ export async function updateUser(req: Request, res: Response) {
     if (is_active !== undefined) {
       updates.push(`is_active = $${paramIndex++}`)
       params.push(is_active)
+    }
+
+    // Handle admin_permissions if provided
+    if (admin_permissions !== undefined) {
+      const { rows: permCheck } = await query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'users' AND column_name = 'admin_permissions'
+      `)
+      
+      if (permCheck.length > 0) {
+        updates.push(`admin_permissions = $${paramIndex++}::jsonb`)
+        params.push(JSON.stringify(admin_permissions))
+      }
+    }
+
+    // Handle admin_approval_status if provided (for approving/rejecting admin requests)
+    if (req.body.admin_approval_status !== undefined) {
+      const { rows: statusCheck } = await query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'users' AND column_name = 'admin_approval_status'
+      `)
+      
+      if (statusCheck.length > 0) {
+        updates.push(`admin_approval_status = $${paramIndex++}`)
+        params.push(req.body.admin_approval_status)
+      }
     }
 
     if (updates.length === 0) {
@@ -89,6 +210,34 @@ export async function updateUser(req: Request, res: Response) {
 export async function deleteUser(req: Request, res: Response) {
   try {
     const { userId } = req.params
+    const authReq = req as AuthRequest
+    const currentUserId = authReq.userId
+
+    // STRICT: Prevent admin from deleting themselves
+    if (currentUserId === userId) {
+      return res.status(403).json({ error: 'You cannot delete your own account' })
+    }
+
+    // Check if user being deleted is an admin
+    const { rows: userRows } = await query<{ role: string }>(
+      `SELECT role FROM users WHERE user_id = $1`,
+      [userId]
+    )
+
+    if (userRows.length === 0) {
+      return res.status(404).json({ error: 'User not found' })
+    }
+
+    // Prevent deleting the last admin
+    if (userRows[0].role === 'admin') {
+      const { rows: adminCount } = await query<{ count: string }>(
+        `SELECT COUNT(*) as count FROM users WHERE role = 'admin' AND is_active = true`
+      )
+      if (Number(adminCount[0].count) <= 1) {
+        return res.status(403).json({ error: 'Cannot delete the last active admin' })
+      }
+    }
+
     await query(`DELETE FROM users WHERE user_id = $1`, [userId])
     return res.json({ success: true })
   } catch (err) {

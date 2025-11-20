@@ -15,11 +15,13 @@ interface User {
   role: string
   is_active: boolean
   created_at: string
+  admin_approval_status?: 'pending' | 'approved' | 'rejected' | null
+  admin_permissions?: Record<string, boolean> | null
 }
 
 export default function AdminUsersPage() {
   const router = useRouter()
-  const { user } = useAuth()
+  const { user: currentUser } = useAuth()
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -27,17 +29,17 @@ export default function AdminUsersPage() {
   const [total, setTotal] = useState(0)
 
   useEffect(() => {
-    // Check if user is admin
-    if (user && user.role !== 'admin') {
-      router.push('/dashboard')
-      return
-    }
-    if (!user) {
+    // STRICT: Only admin can access
+    if (!currentUser) {
       router.push('/auth/signin')
       return
     }
+    if (currentUser.role !== 'admin') {
+      router.push('/admin') // Redirect to admin dashboard, not HR dashboard
+      return
+    }
     loadUsers()
-  }, [page, search, user, router])
+  }, [page, search, currentUser, router])
 
   const loadUsers = async () => {
     try {
@@ -70,7 +72,19 @@ export default function AdminUsersPage() {
     }
   }
 
-  const updateUser = async (userId: string, updates: { role?: string; is_active?: boolean }) => {
+  const updateUser = async (userId: string, updates: { role?: string; is_active?: boolean; admin_approval_status?: string; admin_permissions?: Record<string, boolean> }) => {
+    // STRICT: Prevent admin from deactivating themselves
+    if (currentUser && currentUser.id === userId && updates.is_active === false) {
+      alert('You cannot deactivate your own account')
+      return
+    }
+
+    // STRICT: Prevent admin from removing their own admin role
+    if (currentUser && currentUser.id === userId && updates.role && updates.role !== 'admin') {
+      alert('You cannot remove your own admin role')
+      return
+    }
+
     try {
       const token = localStorage.getItem('token')
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/admin/users/${userId}`, {
@@ -82,16 +96,38 @@ export default function AdminUsersPage() {
         body: JSON.stringify(updates)
       })
 
+      const data = await response.json()
+
       if (response.ok) {
+        if (data.requires_approval) {
+          alert('Admin role assigned. User requires approval before they can access admin features.')
+        }
         loadUsers()
+      } else {
+        alert(data.error || 'Failed to update user')
       }
     } catch (error) {
       console.error('Error updating user:', error)
+      alert('An error occurred while updating the user')
     }
   }
 
+  const approveAdmin = async (userId: string) => {
+    await updateUser(userId, { admin_approval_status: 'approved' })
+  }
+
+  const rejectAdmin = async (userId: string) => {
+    await updateUser(userId, { admin_approval_status: 'rejected', role: 'user' })
+  }
+
   const deleteUser = async (userId: string) => {
-    if (!confirm('Are you sure you want to delete this user?')) return
+    // STRICT: Prevent admin from deleting themselves
+    if (currentUser && currentUser.id === userId) {
+      alert('You cannot delete your own account')
+      return
+    }
+
+    if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) return
 
     try {
       const token = localStorage.getItem('token')
@@ -102,11 +138,16 @@ export default function AdminUsersPage() {
         }
       })
 
+      const data = await response.json()
+      
       if (response.ok) {
         loadUsers()
+      } else {
+        alert(data.error || 'Failed to delete user')
       }
     } catch (error) {
       console.error('Error deleting user:', error)
+      alert('An error occurred while deleting the user')
     }
   }
 
@@ -159,63 +200,155 @@ export default function AdminUsersPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  {users.map((user) => (
-                    <div
-                      key={user.user_id}
-                      className="flex items-center justify-between p-4 bg-neutral-800 rounded-lg hover:bg-neutral-750"
-                    >
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3">
-                          <span className="font-medium">{user.email}</span>
-                          <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
-                            {user.role}
-                          </Badge>
-                          <Badge variant={user.is_active ? 'default' : 'destructive'}>
-                            {user.is_active ? 'Active' : 'Inactive'}
-                          </Badge>
+                  {users.map((userItem) => {
+                    const isCurrentUser = currentUser && currentUser.id === userItem.user_id
+                    return (
+                      <div
+                        key={userItem.user_id}
+                        className="flex items-center justify-between p-4 bg-neutral-800 rounded-lg hover:bg-neutral-750"
+                      >
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3">
+                            <span className="font-medium">{userItem.email}</span>
+                            {isCurrentUser && (
+                              <Badge variant="outline" className="border-blue-500 text-blue-500">
+                                You
+                              </Badge>
+                            )}
+                            <Badge variant={userItem.role === 'admin' ? 'default' : 'secondary'}>
+                              {userItem.role}
+                            </Badge>
+                            {userItem.role === 'admin' && userItem.admin_approval_status === 'pending' && (
+                              <Badge variant="outline" className="border-yellow-500 text-yellow-500">
+                                Pending Approval
+                              </Badge>
+                            )}
+                            {userItem.role === 'admin' && userItem.admin_approval_status === 'approved' && (
+                              <Badge variant="outline" className="border-green-500 text-green-500">
+                                Approved
+                              </Badge>
+                            )}
+                            <Badge variant={userItem.is_active ? 'default' : 'destructive'}>
+                              {userItem.is_active ? 'Active' : 'Inactive'}
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-gray-400 mt-1">
+                            Created: {new Date(userItem.created_at).toLocaleDateString()}
+                          </p>
+                          {userItem.role === 'admin' && userItem.admin_permissions && Object.keys(userItem.admin_permissions).length > 0 && (
+                            <p className="text-xs text-gray-500 mt-1">
+                              Permissions: {Object.entries(userItem.admin_permissions)
+                                .filter(([_, enabled]) => enabled)
+                                .map(([key, _]) => key.replace('_', ' '))
+                                .join(', ') || 'None'}
+                            </p>
+                          )}
                         </div>
-                        <p className="text-sm text-gray-400 mt-1">
-                          Created: {new Date(user.created_at).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <div className="flex gap-2">
-                        {user.role !== 'admin' && (
-                          <Button
-                            size="sm"
-                            onClick={() => updateUser(user.user_id, { role: 'admin' })}
-                            className="bg-purple-600 hover:bg-purple-700"
-                          >
-                            <Shield className="h-4 w-4 mr-1" />
-                            Make Admin
-                          </Button>
-                        )}
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => updateUser(user.user_id, { is_active: !user.is_active })}
-                        >
-                          {user.is_active ? (
+                        <div className="flex gap-2 flex-wrap">
+                          {userItem.role !== 'admin' && (
+                            <Button
+                              size="sm"
+                              onClick={() => {
+                                if (confirm('Promote this user to admin? They will require approval before accessing admin features.')) {
+                                  updateUser(userItem.user_id, { 
+                                    role: 'admin',
+                                    admin_permissions: {
+                                      manage_users: true,
+                                      manage_companies: true,
+                                      manage_jobs: true,
+                                      manage_applications: true,
+                                      view_analytics: true
+                                    }
+                                  })
+                                }
+                              }}
+                              className="bg-purple-600 hover:bg-purple-700"
+                            >
+                              <Shield className="h-4 w-4 mr-1" />
+                              Make Admin
+                            </Button>
+                          )}
+                          {userItem.role === 'admin' && userItem.admin_approval_status === 'pending' && (
                             <>
-                              <UserX className="h-4 w-4 mr-1" />
-                              Deactivate
-                            </>
-                          ) : (
-                            <>
-                              <UserCheck className="h-4 w-4 mr-1" />
-                              Activate
+                              <Button
+                                size="sm"
+                                onClick={() => approveAdmin(userItem.user_id)}
+                                className="bg-green-600 hover:bg-green-700"
+                              >
+                                <UserCheck className="h-4 w-4 mr-1" />
+                                Approve
+                              </Button>
+                              <Button
+                                size="sm"
+                                onClick={() => rejectAdmin(userItem.user_id)}
+                                className="bg-red-600 hover:bg-red-700"
+                              >
+                                <UserX className="h-4 w-4 mr-1" />
+                                Reject
+                              </Button>
                             </>
                           )}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => deleteUser(user.user_id)}
-                        >
-                          Delete
-                        </Button>
+                          {userItem.role === 'admin' && userItem.admin_approval_status === 'approved' && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                const permissions = userItem.admin_permissions || {}
+                                const enabledPerms = Object.entries(permissions)
+                                  .filter(([_, v]) => v)
+                                  .map(([k]) => k)
+                                  .join(', ')
+                                const newPerms = prompt(
+                                  `Edit permissions (comma-separated):\nAvailable: manage_users, manage_companies, manage_jobs, manage_applications, view_analytics\nCurrent: ${enabledPerms || 'None'}\n\nEnter permissions to enable:`,
+                                  enabledPerms
+                                )
+                                if (newPerms !== null) {
+                                  const permList = newPerms.split(',').map(p => p.trim()).filter(Boolean)
+                                  const allPerms = ['manage_users', 'manage_companies', 'manage_jobs', 'manage_applications', 'view_analytics']
+                                  const updatedPerms: Record<string, boolean> = {}
+                                  allPerms.forEach(perm => {
+                                    updatedPerms[perm] = permList.includes(perm)
+                                  })
+                                  updateUser(userItem.user_id, { admin_permissions: updatedPerms })
+                                }
+                              }}
+                            >
+                              <Shield className="h-4 w-4 mr-1" />
+                              Permissions
+                            </Button>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => updateUser(userItem.user_id, { is_active: !userItem.is_active })}
+                            disabled={isCurrentUser && !userItem.is_active}
+                            title={isCurrentUser && !userItem.is_active ? 'You cannot deactivate your own account' : ''}
+                          >
+                            {userItem.is_active ? (
+                              <>
+                                <UserX className="h-4 w-4 mr-1" />
+                                Deactivate
+                              </>
+                            ) : (
+                              <>
+                                <UserCheck className="h-4 w-4 mr-1" />
+                                Activate
+                              </>
+                            )}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => deleteUser(userItem.user_id)}
+                            disabled={isCurrentUser}
+                            title={isCurrentUser ? 'You cannot delete your own account' : ''}
+                          >
+                            Delete
+                          </Button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
 
                 {users.length === 0 && (

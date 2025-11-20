@@ -79,39 +79,66 @@ export function JobsSection() {
         
         console.log('🔄 Loading jobs for user:', user.id)
         
-        // Get company for this user - try user_id first, then fallback to email
+        // First, try to use company_id from localStorage (set when job is created)
+        let companyId = localStorage.getItem('user_company_id')
         let company = null
         let companyError = null
         
-        // First try to find by user_id (preferred method)
-        if (user.id) {
-          const { data: companiesByUserId, error: errorByUserId } = await supabase
+        if (companyId) {
+          console.log('💾 Found company_id in localStorage:', companyId)
+          // Verify company exists
+          const { data: verifyCompany, error: verifyError } = await supabase
             .from('companies')
             .select('company_id, id, user_id, hr_email, company_email')
-            .eq('user_id', user.id)
+            .eq('company_id', companyId)
             .limit(1)
           
-          if (!errorByUserId && companiesByUserId && companiesByUserId.length > 0) {
-            company = companiesByUserId[0]
-            console.log('✅ Found company by user_id:', company)
+          if (!verifyError && verifyCompany && verifyCompany.length > 0) {
+            company = verifyCompany[0]
+            console.log('✅ Verified company from localStorage:', company)
           } else {
-            companyError = errorByUserId
+            console.log('⚠️ Company from localStorage not found, clearing it')
+            localStorage.removeItem('user_company_id')
+            companyId = null
           }
         }
         
-        // Fallback to email-based lookup if user_id didn't work
+        // If no company_id in localStorage, try to find company
         if (!company) {
-          const { data: companiesByEmail, error: errorByEmail } = await supabase
-            .from('companies')
-            .select('company_id, id, user_id, hr_email, company_email')
-            .or(`hr_email.eq.${user.email},company_email.eq.${user.email}`)
-            .limit(1)
+          // First try to find by user_id (preferred method)
+          if (user.id) {
+            const { data: companiesByUserId, error: errorByUserId } = await supabase
+              .from('companies')
+              .select('company_id, id, user_id, hr_email, company_email')
+              .eq('user_id', user.id)
+              .limit(1)
+            
+            if (!errorByUserId && companiesByUserId && companiesByUserId.length > 0) {
+              company = companiesByUserId[0]
+              console.log('✅ Found company by user_id:', company)
+              // Store for future use
+              localStorage.setItem('user_company_id', company.company_id || company.id)
+            } else {
+              companyError = errorByUserId
+            }
+          }
           
-          if (!errorByEmail && companiesByEmail && companiesByEmail.length > 0) {
-            company = companiesByEmail[0]
-            console.log('✅ Found company by email:', company)
-          } else {
-            companyError = errorByEmail || companyError
+          // Fallback to email-based lookup if user_id didn't work
+          if (!company) {
+            const { data: companiesByEmail, error: errorByEmail } = await supabase
+              .from('companies')
+              .select('company_id, id, user_id, hr_email, company_email')
+              .or(`hr_email.eq.${user.email},company_email.eq.${user.email}`)
+              .limit(1)
+            
+            if (!errorByEmail && companiesByEmail && companiesByEmail.length > 0) {
+              company = companiesByEmail[0]
+              console.log('✅ Found company by email:', company)
+              // Store for future use
+              localStorage.setItem('user_company_id', company.company_id || company.id)
+            } else {
+              companyError = errorByEmail || companyError
+            }
           }
         }
         
@@ -124,7 +151,7 @@ export function JobsSection() {
         }
         
         // Use company_id from schema (primary key) or fallback to id
-        const companyId = company.company_id || company.id
+        companyId = company.company_id || company.id
         console.log('✅ Found company:', company, 'using company_id:', companyId)
         
         // Then get all job postings for this company
@@ -221,39 +248,66 @@ export function JobsSection() {
       setIsLoading(true)
       setError(null)
       
-      // Get company for this user - try user_id first, then fallback to email
+      // First, try to use company_id from localStorage (set when job is created)
+      let companyId = localStorage.getItem('user_company_id')
       let company = null
       let companyError = null
       
-      // First try to find by user_id (preferred method)
-      if (user.id) {
-        const { data: companiesByUserId, error: errorByUserId } = await supabase
+      if (companyId) {
+        console.log('💾 Found company_id in localStorage:', companyId)
+        // Verify company exists
+        const { data: verifyCompany, error: verifyError } = await supabase
           .from('companies')
           .select('company_id, id, user_id, hr_email, company_email')
-          .eq('user_id', user.id)
+          .eq('company_id', companyId)
           .limit(1)
         
-        if (!errorByUserId && companiesByUserId && companiesByUserId.length > 0) {
-          company = companiesByUserId[0]
-          console.log('✅ Found company by user_id:', company)
+        if (!verifyError && verifyCompany && verifyCompany.length > 0) {
+          company = verifyCompany[0]
+          console.log('✅ Verified company from localStorage:', company)
         } else {
-          companyError = errorByUserId
+          console.log('⚠️ Company from localStorage not found, clearing it')
+          localStorage.removeItem('user_company_id')
+          companyId = null
         }
       }
       
-      // Fallback to email-based lookup if user_id didn't work
+      // If no company_id in localStorage, try to find company
       if (!company) {
-        const { data: companiesByEmail, error: errorByEmail } = await supabase
-          .from('companies')
-          .select('company_id, id, user_id, hr_email, company_email')
-          .or(`hr_email.eq.${user.email},company_email.eq.${user.email}`)
-          .limit(1)
+        // First try to find by user_id (preferred method)
+        if (user.id) {
+          const { data: companiesByUserId, error: errorByUserId } = await supabase
+            .from('companies')
+            .select('company_id, id, user_id, hr_email, company_email')
+            .eq('user_id', user.id)
+            .limit(1)
+          
+          if (!errorByUserId && companiesByUserId && companiesByUserId.length > 0) {
+            company = companiesByUserId[0]
+            console.log('✅ Found company by user_id:', company)
+            // Store for future use
+            localStorage.setItem('user_company_id', company.company_id || company.id)
+          } else {
+            companyError = errorByUserId
+          }
+        }
         
-        if (!errorByEmail && companiesByEmail && companiesByEmail.length > 0) {
-          company = companiesByEmail[0]
-          console.log('✅ Found company by email:', company)
-        } else {
-          companyError = errorByEmail || companyError
+        // Fallback to email-based lookup if user_id didn't work
+        if (!company) {
+          const { data: companiesByEmail, error: errorByEmail } = await supabase
+            .from('companies')
+            .select('company_id, id, user_id, hr_email, company_email')
+            .or(`hr_email.eq.${user.email},company_email.eq.${user.email}`)
+            .limit(1)
+          
+          if (!errorByEmail && companiesByEmail && companiesByEmail.length > 0) {
+            company = companiesByEmail[0]
+            console.log('✅ Found company by email:', company)
+            // Store for future use
+            localStorage.setItem('user_company_id', company.company_id || company.id)
+          } else {
+            companyError = errorByEmail || companyError
+          }
         }
       }
       
@@ -266,7 +320,7 @@ export function JobsSection() {
       }
       
       // Use company_id from schema (primary key) or fallback to id
-      const companyId = company.company_id || company.id
+      companyId = company.company_id || company.id
       console.log('🔍 Using company_id:', companyId, 'from company:', company)
       
       // Then get all job postings for this company
@@ -283,13 +337,17 @@ export function JobsSection() {
       }
       
       console.log('🔄 Refresh - Found job postings:', jobPostings?.length || 0)
+      console.log('🔍 Raw job postings data:', JSON.stringify(jobPostings, null, 2))
+      console.log('🔍 Company ID used for query:', companyId)
       
       // Get applicant statistics for each job from recruitment_analytics and applicants tables
       const jobsWithApplicants: JobWithApplicants[] = []
       
       for (const job of jobPostings || []) {
         // Use job_posting_id if available, otherwise use id
-        const jobId = job.job_posting_id || job.id
+        // Handle both Supabase format (job_posting_id) and direct id
+        const jobId = job.job_posting_id || job.id || (job as any).job_posting_id
+        console.log('🔍 Processing job:', { jobId, job: job })
         
         // First try to get analytics from recruitment_analytics table
         const { data: analytics, error: analyticsError } = await supabase
@@ -401,6 +459,16 @@ export function JobsSection() {
       const jobPostingId: string = data.job_posting_id
       const companyId: string = data.company_id
       
+      console.log('✅ New job created via backend:', { jobPostingId, companyId })
+      console.log('🔍 Created job company_id:', companyId)
+      console.log('🔍 Current user:', { id: user.id, email: user.email })
+      
+      // Store company_id in localStorage for future queries
+      if (companyId) {
+        localStorage.setItem('user_company_id', companyId)
+        console.log('💾 Stored company_id in localStorage:', companyId)
+      }
+      
       // Compose local job object for immediate UI feedback
       const composedJob: JobWithApplicants = {
         id: jobPostingId,
@@ -428,6 +496,8 @@ export function JobsSection() {
       }
       
       console.log('✅ New job created via backend:', { jobPostingId, companyId })
+      console.log('🔍 Created job company_id:', companyId)
+      console.log('🔍 Current user:', { id: user.id, email: user.email })
       
       // Refresh jobs list to get the actual job from database
       // Await refresh to ensure job appears in list before showing success
@@ -435,6 +505,20 @@ export function JobsSection() {
       try {
         await refreshJobs()
         console.log('✅ Jobs list refreshed - new job should be visible')
+        
+        // Double-check: Query directly to verify job exists
+        const { data: verifyJobs, error: verifyError } = await supabase
+          .from('job_postings')
+          .select('*')
+          .eq('job_posting_id', jobPostingId)
+        
+        console.log('🔍 Verification query result:', { verifyJobs, verifyError })
+        if (verifyJobs && verifyJobs.length > 0) {
+          console.log('✅ Job verified in database:', verifyJobs[0])
+          console.log('🔍 Job company_id:', verifyJobs[0].company_id)
+        } else {
+          console.warn('⚠️ Job not found in verification query!')
+        }
       } catch (err) {
         console.error('Error refreshing jobs after creation:', err)
         // Don't throw - job was created successfully, refresh can happen later

@@ -70,10 +70,10 @@ export function ProfileSection() {
 
     try {
       setIsLoading(true)
-      // Try Supabase first
+      // Try Supabase first - use company_id as primary key
       const { data, error } = await supabase
         .from('companies')
-        .select('id, company_name, company_email, hr_email, created_at')
+        .select('company_id, id, company_name, company_email, hr_email, created_at')
         .eq('user_id', user.id)
         .single()
 
@@ -116,7 +116,13 @@ export function ProfileSection() {
       }
 
       if (data) {
-        setCompany(data)
+        setCompany({
+          id: data.company_id || data.id,
+          company_name: data.company_name || '',
+          company_email: data.company_email || '',
+          hr_email: data.hr_email || '',
+          created_at: data.created_at || new Date().toISOString()
+        })
         setFormData({
           company_name: data.company_name || '',
           company_email: data.company_email || '',
@@ -150,7 +156,7 @@ export function ProfileSection() {
           company_email: formData.company_email,
           hr_email: formData.hr_email,
         })
-        .eq('id', company.id)
+        .eq('company_id', company.id)
 
       if (error) {
         throw error

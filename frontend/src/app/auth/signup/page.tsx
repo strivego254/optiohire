@@ -13,8 +13,16 @@ import { Eye, EyeOff, ArrowLeft } from 'lucide-react'
 
 const signUpSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  password: z.string()
+    .min(8, 'Password must be at least 8 characters')
+    .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+    .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+    .regex(/[0-9]/, 'Password must contain at least one number')
+    .regex(/[^A-Za-z0-9]/, 'Password must contain at least one special character'),
   confirmPassword: z.string(),
+  company_name: z.string().min(2, 'Company name must be at least 2 characters'),
+  company_email: z.string().email('Please enter a valid company email address'),
+  hr_email: z.string().email('Please enter a valid HR email address'),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ["confirmPassword"],
@@ -43,7 +51,7 @@ export default function SignUpPage() {
     setError(null)
 
     try {
-      const { error } = await signUp(data.email, data.password)
+      const { error } = await signUp(data.email, data.password, data.company_name, data.company_email, data.hr_email)
       
       if (error) {
         setError(error.message)
@@ -54,7 +62,7 @@ export default function SignUpPage() {
       // Small delay to ensure state is updated
       await new Promise(resolve => setTimeout(resolve, 100))
       
-      // Redirect to dashboard directly (user can set up company later from dashboard)
+      // Redirect to dashboard directly (company is already created)
       router.push('/dashboard')
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred. Please try again.'
@@ -164,6 +172,9 @@ export default function SignUpPage() {
               {errors.password && (
                 <p className="text-sm text-red-500 mt-1 font-figtree">{errors.password.message}</p>
               )}
+              <p className="text-xs text-gray-500 mt-1 font-figtree">
+                Password must contain: uppercase, lowercase, number, special character, and be at least 8 characters
+              </p>
             </div>
 
             {/* Confirm Password Field */}
@@ -195,6 +206,71 @@ export default function SignUpPage() {
               {errors.confirmPassword && (
                 <p className="text-sm text-red-500 mt-1 font-figtree">{errors.confirmPassword.message}</p>
               )}
+            </div>
+
+            {/* Company Information Section */}
+            <div className="pt-4 border-t border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 font-figtree">Company Information</h3>
+              
+              {/* Company Name Field */}
+              <div className="mb-4">
+                <label htmlFor="company_name" className="block text-sm font-medium text-gray-700 mb-2 font-figtree">
+                  Company Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  id="company_name"
+                  placeholder="Enter your company name"
+                  {...register('company_name')}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all font-figtree bg-white text-gray-900 placeholder-gray-500 text-sm"
+                  required
+                />
+                {errors.company_name && (
+                  <p className="text-sm text-red-500 mt-1 font-figtree">{errors.company_name.message}</p>
+                )}
+              </div>
+
+              {/* Company Email Field */}
+              <div className="mb-4">
+                <label htmlFor="company_email" className="block text-sm font-medium text-gray-700 mb-2 font-figtree">
+                  Company Email <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="email"
+                  id="company_email"
+                  placeholder="company@example.com"
+                  {...register('company_email')}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all font-figtree bg-white text-gray-900 placeholder-gray-500 text-sm"
+                  required
+                />
+                {errors.company_email && (
+                  <p className="text-sm text-red-500 mt-1 font-figtree">{errors.company_email.message}</p>
+                )}
+                <p className="text-xs text-gray-500 mt-1 font-figtree">
+                  This will be used for company communications and job postings
+                </p>
+              </div>
+
+              {/* HR Email Field */}
+              <div>
+                <label htmlFor="hr_email" className="block text-sm font-medium text-gray-700 mb-2 font-figtree">
+                  HR Email <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="email"
+                  id="hr_email"
+                  placeholder="hr@example.com"
+                  {...register('hr_email')}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all font-figtree bg-white text-gray-900 placeholder-gray-500 text-sm"
+                  required
+                />
+                {errors.hr_email && (
+                  <p className="text-sm text-red-500 mt-1 font-figtree">{errors.hr_email.message}</p>
+                )}
+                <p className="text-xs text-gray-500 mt-1 font-figtree">
+                  This will be used for receiving job applications and notifications
+                </p>
+              </div>
             </div>
 
             {/* Error Display */}

@@ -65,6 +65,30 @@ BEGIN
   END IF;
 END $$;
 
+-- Add admin_approval_status column for admin approval workflow
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'users' AND column_name = 'admin_approval_status'
+  ) THEN
+    ALTER TABLE users ADD COLUMN admin_approval_status text CHECK (admin_approval_status IN ('pending', 'approved', 'rejected')) DEFAULT NULL;
+    RAISE NOTICE 'Added admin_approval_status column to users table';
+  END IF;
+END $$;
+
+-- Add admin_permissions column for role-based permissions
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'users' AND column_name = 'admin_permissions'
+  ) THEN
+    ALTER TABLE users ADD COLUMN admin_permissions jsonb DEFAULT '{}'::jsonb;
+    RAISE NOTICE 'Added admin_permissions column to users table';
+  END IF;
+END $$;
+
 -- Update existing users to have default values if null (only if columns exist)
 -- Use exception handling to safely handle cases where column might not exist
 DO $$ 
@@ -138,7 +162,7 @@ CREATE TABLE IF NOT EXISTS companies (
   company_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid REFERENCES users(user_id) ON DELETE CASCADE,
   company_name text NOT NULL,
-  company_email text,
+  company_email text NOT NULL,
   hr_email text NOT NULL,
   hiring_manager_email text NOT NULL,
   company_domain text NOT NULL,
@@ -147,26 +171,53 @@ CREATE TABLE IF NOT EXISTS companies (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
--- Indexes for companies
-CREATE INDEX IF NOT EXISTS idx_companies_user_id ON companies(user_id) WHERE user_id IS NOT NULL;
-CREATE INDEX IF NOT EXISTS idx_companies_domain ON companies(company_domain);
-CREATE INDEX IF NOT EXISTS idx_companies_hr_email ON companies(hr_email);
-CREATE INDEX IF NOT EXISTS idx_companies_company_email ON companies(company_email) WHERE company_email IS NOT NULL;
-
 -- Add user_id column to companies if it doesn't exist (for existing databases)
 DO $$ 
 BEGIN
-  BEGIN
-    ALTER TABLE companies ADD COLUMN IF NOT EXISTS user_id uuid REFERENCES users(user_id) ON DELETE CASCADE;
-  EXCEPTION
-    WHEN SQLSTATE '42703' THEN
-      -- Column doesn't exist, try to add it
-      NULL;
-    WHEN OTHERS THEN
-      -- Other errors, re-raise
-      RAISE;
-  END;
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'companies' AND column_name = 'user_id'
+  ) THEN
+    ALTER TABLE companies ADD COLUMN user_id uuid REFERENCES users(user_id) ON DELETE CASCADE;
+    RAISE NOTICE 'Added user_id column to companies table';
+  END IF;
 END $$;
+
+-- Make company_email NOT NULL if it's currently nullable (for existing databases)
+DO $$ 
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'companies' 
+    AND column_name = 'company_email' 
+    AND is_nullable = 'YES'
+  ) THEN
+    -- First, set any NULL values to a default (use hr_email as fallback)
+    UPDATE companies 
+    SET company_email = COALESCE(company_email, hr_email) 
+    WHERE company_email IS NULL;
+    
+    -- Then make it NOT NULL
+    ALTER TABLE companies ALTER COLUMN company_email SET NOT NULL;
+    RAISE NOTICE 'Made company_email NOT NULL in companies table';
+  END IF;
+END $$;
+
+-- Indexes for companies (created AFTER column migration to ensure column exists)
+DO $$ 
+BEGIN
+  -- Only create index if user_id column exists
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'companies' AND column_name = 'user_id'
+  ) THEN
+    CREATE INDEX IF NOT EXISTS idx_companies_user_id ON companies(user_id) WHERE user_id IS NOT NULL;
+  END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_companies_domain ON companies(company_domain);
+CREATE INDEX IF NOT EXISTS idx_companies_hr_email ON companies(hr_email);
+CREATE INDEX IF NOT EXISTS idx_companies_company_email ON companies(company_email) WHERE company_email IS NOT NULL;
 
 -- ============================================================================
 -- JOB POSTINGS TABLE

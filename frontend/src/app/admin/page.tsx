@@ -31,13 +31,13 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Check if user is admin
-    if (user && user.role !== 'admin') {
-      router.push('/dashboard')
-      return
-    }
+    // STRICT: Only admin can access
     if (!user) {
       router.push('/auth/signin')
+      return
+    }
+    if (user.role !== 'admin') {
+      router.push('/admin') // Stay in admin area
       return
     }
     loadStats()

@@ -29,6 +29,47 @@ export async function getCurrentUser(req: AuthRequest, res: Response) {
     }
 
     const user = rows[0]
+
+    // STRICT: Check if user has a company (except admin)
+    let hasCompany = false
+    let companyId = null
+    
+    if (user.role !== 'admin') {
+      try {
+        // Check if user_id column exists in companies table
+        const checkColumn = await query(`
+          SELECT column_name 
+          FROM information_schema.columns 
+          WHERE table_name = 'companies' AND column_name = 'user_id'
+        `)
+        
+        if (checkColumn.rows.length > 0) {
+          // user_id column exists, check by user_id
+          const companyCheck = await query<{ company_id: string }>(
+            `SELECT company_id FROM companies WHERE user_id = $1 LIMIT 1`,
+            [userId]
+          )
+          hasCompany = companyCheck.rows.length > 0
+          companyId = companyCheck.rows[0]?.company_id || null
+        } else {
+          // Fallback: check by email (hr_email or company_email)
+          const companyCheck = await query<{ company_id: string }>(
+            `SELECT company_id FROM companies WHERE hr_email = $1 OR company_email = $1 LIMIT 1`,
+            [user.email]
+          )
+          hasCompany = companyCheck.rows.length > 0
+          companyId = companyCheck.rows[0]?.company_id || null
+        }
+      } catch (err) {
+        console.error('Error checking company:', err)
+        // Strict enforcement: if check fails, assume no company
+        hasCompany = false
+      }
+    } else {
+      // Admin always has access
+      hasCompany = true
+    }
+
     return res.json({
       id: user.user_id,
       user_id: user.user_id,
@@ -36,7 +77,9 @@ export async function getCurrentUser(req: AuthRequest, res: Response) {
       role: user.role,
       is_active: user.is_active,
       created_at: user.created_at,
-      updated_at: user.updated_at
+      updated_at: user.updated_at,
+      hasCompany,
+      companyId
     })
   } catch (err) {
     console.error('Error getting user profile:', err)

@@ -1,17 +1,31 @@
 import type { Request, Response } from 'express'
 import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
-import { query } from '../db/index.js'
+import { query, pool } from '../db/index.js'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_change_me'
 const SALT_ROUNDS = 10
 
 export async function signup(req: Request, res: Response) {
+  const client = await pool.connect()
   try {
-    const { email, password } = req.body || {}
+    const { email, password, company_name, company_email, hr_email } = req.body || {}
+    
+    // Validate required fields
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password are required' })
     }
+    if (!company_name || !company_email || !hr_email) {
+      return res.status(400).json({ error: 'Company name, company email, and HR email are required' })
+    }
+
+    // Validate email formats
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email) || !emailRegex.test(company_email) || !emailRegex.test(hr_email)) {
+      return res.status(400).json({ error: 'All email addresses must be valid' })
+    }
+
+    // Check if user already exists
     const { rows: existing } = await query<{ user_id: string }>(
       `select user_id from users where email = $1`,
       [email.toLowerCase()]
@@ -19,23 +33,94 @@ export async function signup(req: Request, res: Response) {
     if (existing.length > 0) {
       return res.status(409).json({ error: 'Account already exists' })
     }
-    const hash = await bcrypt.hash(password, SALT_ROUNDS)
-    const { rows } = await query<{ user_id: string; created_at: string }>(
-      `insert into users (email, password_hash, role, is_active) values ($1, $2, 'user', true) returning user_id, created_at`,
-      [email.toLowerCase(), hash]
-    )
-    const userId = rows[0].user_id
-    const token = jwt.sign({ sub: userId, email: email.toLowerCase() }, JWT_SECRET, { expiresIn: '7d' })
-    return res.status(201).json({ 
-      token, 
-      user: { 
-        user_id: userId, 
-        id: userId, // Also include as 'id' for frontend compatibility
-        email: email.toLowerCase(),
-        role: 'user',
-        created_at: rows[0].created_at
-      } 
-    })
+
+    // Start transaction
+    await client.query('BEGIN')
+
+    try {
+      // Create user
+      const hash = await bcrypt.hash(password, SALT_ROUNDS)
+      const { rows } = await client.query<{ user_id: string; created_at: string }>(
+        `insert into users (email, password_hash, role, is_active) values ($1, $2, 'user', true) returning user_id, created_at`,
+        [email.toLowerCase(), hash]
+      )
+      const userId = rows[0].user_id
+
+      // Extract domain from company_email or hr_email
+      const companyDomain = company_email.split('@')[1] || hr_email.split('@')[1] || null
+
+      // Check if user_id column exists
+      let hasUserIdColumn = false
+      try {
+        const checkResult = await client.query(`
+          SELECT column_name 
+          FROM information_schema.columns 
+          WHERE table_name = 'companies' AND column_name = 'user_id'
+        `)
+        hasUserIdColumn = checkResult.rows.length > 0
+      } catch (err) {
+        console.log('⚠️ Could not check for user_id column, assuming it does not exist')
+        hasUserIdColumn = false
+      }
+
+      // Create company with user_id if column exists
+      let companyResult
+      if (hasUserIdColumn) {
+        companyResult = await client.query<{ company_id: string }>(
+          `insert into companies (user_id, company_name, hr_email, hiring_manager_email, company_domain, company_email)
+           values ($1, $2, $3, $4, $5, $6)
+           returning company_id`,
+          [
+            userId,
+            company_name,
+            hr_email,
+            hr_email, // Use hr_email as hiring_manager_email if not provided
+            companyDomain,
+            company_email
+          ]
+        )
+      } else {
+        companyResult = await client.query<{ company_id: string }>(
+          `insert into companies (company_name, hr_email, hiring_manager_email, company_domain, company_email)
+           values ($1, $2, $3, $4, $5)
+           returning company_id`,
+          [
+            company_name,
+            hr_email,
+            hr_email, // Use hr_email as hiring_manager_email if not provided
+            companyDomain,
+            company_email
+          ]
+        )
+      }
+
+      // Commit transaction
+      await client.query('COMMIT')
+
+      const token = jwt.sign({ sub: userId, email: email.toLowerCase() }, JWT_SECRET, { expiresIn: '7d' })
+      return res.status(201).json({ 
+        token, 
+        user: { 
+          user_id: userId, 
+          id: userId, // Also include as 'id' for frontend compatibility
+          email: email.toLowerCase(),
+          role: 'user',
+          created_at: rows[0].created_at,
+          hasCompany: true, // Always true on signup as company is created
+          companyId: companyResult.rows[0].company_id
+        },
+        company: {
+          company_id: companyResult.rows[0].company_id,
+          company_name,
+          company_email,
+          hr_email
+        }
+      })
+    } catch (err) {
+      // Rollback transaction on error
+      await client.query('ROLLBACK')
+      throw err
+    }
   } catch (err) {
     console.error('Signup error:', err)
     const errorMessage = err instanceof Error ? err.message : 'Unknown error'
@@ -47,6 +132,8 @@ export async function signup(req: Request, res: Response) {
       })
     }
     return res.status(500).json({ error: 'Failed to create account', details: errorMessage })
+  } finally {
+    client.release()
   }
 }
 
@@ -70,6 +157,47 @@ export async function signin(req: Request, res: Response) {
     if (!ok) {
       return res.status(401).json({ error: 'Invalid credentials' })
     }
+
+    // STRICT: Check if user has a company (except admin)
+    let hasCompany = false
+    let companyId = null
+    
+    if (rows[0].role !== 'admin') {
+      try {
+        // Check if user_id column exists in companies table
+        const checkColumn = await query(`
+          SELECT column_name 
+          FROM information_schema.columns 
+          WHERE table_name = 'companies' AND column_name = 'user_id'
+        `)
+        
+        if (checkColumn.rows.length > 0) {
+          // user_id column exists, check by user_id
+          const companyCheck = await query<{ company_id: string }>(
+            `SELECT company_id FROM companies WHERE user_id = $1 LIMIT 1`,
+            [rows[0].user_id]
+          )
+          hasCompany = companyCheck.rows.length > 0
+          companyId = companyCheck.rows[0]?.company_id || null
+        } else {
+          // Fallback: check by email (hr_email or company_email)
+          const companyCheck = await query<{ company_id: string }>(
+            `SELECT company_id FROM companies WHERE hr_email = $1 OR company_email = $1 LIMIT 1`,
+            [email.toLowerCase()]
+          )
+          hasCompany = companyCheck.rows.length > 0
+          companyId = companyCheck.rows[0]?.company_id || null
+        }
+      } catch (err) {
+        console.error('Error checking company:', err)
+        // Strict enforcement: if check fails, assume no company
+        hasCompany = false
+      }
+    } else {
+      // Admin always has access
+      hasCompany = true
+    }
+
     const token = jwt.sign({ sub: rows[0].user_id, email: email.toLowerCase() }, JWT_SECRET, { expiresIn: '7d' })
     return res.status(200).json({ 
       token, 
@@ -78,7 +206,9 @@ export async function signin(req: Request, res: Response) {
         id: rows[0].user_id, // Also include as 'id' for frontend compatibility
         email: email.toLowerCase(),
         role: rows[0].role,
-        created_at: rows[0].created_at
+        created_at: rows[0].created_at,
+        hasCompany,
+        companyId
       } 
     })
   } catch (err) {

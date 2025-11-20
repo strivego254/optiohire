@@ -7,6 +7,8 @@ interface AuthUser {
   id?: string
   created_at?: string
   role?: string
+  hasCompany?: boolean
+  companyId?: string
 }
 
 interface AuthContextType {
@@ -57,10 +59,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               email: userData.email,
               id: userData.id || userData.user_id,
               created_at: userData.created_at,
-              role: userData.role
+              role: userData.role,
+              hasCompany: userData.hasCompany ?? false,
+              companyId: userData.companyId || null
             })
-          } else if (resp.status === 401) {
-            // Token invalid, remove it
+            
+            // STRICT: If user has no company and is not admin, deny access
+            if (!userData.hasCompany && userData.role !== 'admin') {
+              console.error('Access denied: User has no company profile')
+              localStorage.removeItem('token')
+              setUser(null)
+              // Redirect will be handled by dashboard guard
+            }
+          } else if (resp.status === 401 || resp.status === 403) {
+            // Token invalid or access denied, remove it
             localStorage.removeItem('token')
             setUser(null)
           }
@@ -78,14 +90,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loadUserProfile()
   }, [])
 
-  const signUp = async (email: string, password: string) => {
+  const signUp = async (email: string, password: string, company_name: string, company_email: string, hr_email: string) => {
     try {
       setLoading(true)
       const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'
       const resp = await fetch(`${backendUrl}/auth/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email, password, company_name, company_email, hr_email })
       })
       const data = await resp.json().catch(() => ({}))
       if (!resp.ok) {
@@ -97,7 +109,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           email: email.toLowerCase(),
           id: data?.user?.id || data?.user?.user_id, // Support both formats
           created_at: data?.user?.created_at,
-          role: data?.user?.role
+          role: data?.user?.role,
+          hasCompany: data?.company ? true : (data?.user?.hasCompany ?? true), // Signup creates company, so should be true
+          companyId: data?.company?.company_id || data?.user?.companyId || null
         })
       }
       return { error: null }
@@ -132,8 +146,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           email: email.toLowerCase(),
           id: data?.user?.id || data?.user?.user_id, // Support both formats
           created_at: data?.user?.created_at,
-          role: data?.user?.role
+          role: data?.user?.role,
+          hasCompany: data?.user?.hasCompany ?? false,
+          companyId: data?.user?.companyId || null
         })
+        
+        // STRICT: If user has no company and is not admin, deny access immediately
+        if (!data?.user?.hasCompany && data?.user?.role !== 'admin') {
+          console.error('Access denied: User has no company profile')
+          localStorage.removeItem('token')
+          setUser(null)
+          return { error: { message: 'Access denied: Company profile required. Please contact support.' } }
+        }
       }
       return { error: null }
     } catch (err) {

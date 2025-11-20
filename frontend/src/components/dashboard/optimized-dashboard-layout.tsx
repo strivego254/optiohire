@@ -59,13 +59,37 @@ const LazyProfileSection = dynamic(
 )
 
 export function OptimizedDashboardLayout() {
-  const { user } = useAuth()
+  const { user, loading } = useAuth()
   const pathname = usePathname()
   const router = useRouter()
   const [activeSection, setActiveSection] = useState('overview')
   const [isPreloading, setIsPreloading] = useState(true)
   const [preloadTime, setPreloadTime] = useState<number>(0)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+
+  // STRICT: Check if user has company (except admin)
+  useEffect(() => {
+    if (loading) return // Wait for auth to load
+    
+    if (!user) {
+      router.push('/auth/signin')
+      return
+    }
+
+    // STRICT: Admin should ONLY access admin dashboard, not HR dashboard
+    if (user.role === 'admin') {
+      router.push('/admin')
+      return
+    }
+
+    // STRICT: Deny access if user has no company
+    if (user.hasCompany === false) {
+      console.error('Access denied: User has no company profile')
+      localStorage.removeItem('token')
+      router.push('/auth/signin?error=no_company')
+      return
+    }
+  }, [user, loading, router])
 
   // Sync active section with URL pathname
   useEffect(() => {

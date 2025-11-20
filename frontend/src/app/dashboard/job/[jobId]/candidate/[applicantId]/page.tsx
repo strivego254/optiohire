@@ -27,7 +27,16 @@ export default function CandidateDetailPage() {
   const router = useRouter()
   const jobId = params.jobId as string
   const applicantId = params.applicantId as string
-  const { user } = useAuth()
+  const { user, loading: authLoading } = useAuth()
+
+  // STRICT: Admin should NOT access HR dashboard
+  useEffect(() => {
+    if (authLoading) return
+    if (user && user.role === 'admin') {
+      router.push('/admin')
+      return
+    }
+  }, [user, authLoading, router])
 
   const [candidate, setCandidate] = useState<CandidateDetail | null>(null)
   const [loading, setLoading] = useState(true)
