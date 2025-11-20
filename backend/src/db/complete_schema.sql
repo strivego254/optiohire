@@ -21,29 +21,9 @@ EXCEPTION
 END $$;
 
 -- ============================================================================
--- COMPANIES TABLE
--- ============================================================================
-
-CREATE TABLE IF NOT EXISTS companies (
-  company_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  company_name text NOT NULL,
-  company_email text,
-  hr_email text NOT NULL,
-  hiring_manager_email text NOT NULL,
-  company_domain text NOT NULL,
-  settings jsonb DEFAULT '{}'::jsonb,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
-);
-
--- Indexes for companies
-CREATE INDEX IF NOT EXISTS idx_companies_domain ON companies(company_domain);
-CREATE INDEX IF NOT EXISTS idx_companies_hr_email ON companies(hr_email);
-CREATE INDEX IF NOT EXISTS idx_companies_company_email ON companies(company_email) WHERE company_email IS NOT NULL;
-
--- ============================================================================
 -- USERS TABLE (Backend Authentication)
 -- ============================================================================
+-- NOTE: Users table must be created FIRST because companies references it
 
 CREATE TABLE IF NOT EXISTS users (
   user_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -150,6 +130,45 @@ BEGIN
 END $$;
 
 -- ============================================================================
+-- COMPANIES TABLE
+-- ============================================================================
+-- NOTE: Companies table created AFTER users because it references users(user_id)
+
+CREATE TABLE IF NOT EXISTS companies (
+  company_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid REFERENCES users(user_id) ON DELETE CASCADE,
+  company_name text NOT NULL,
+  company_email text,
+  hr_email text NOT NULL,
+  hiring_manager_email text NOT NULL,
+  company_domain text NOT NULL,
+  settings jsonb DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- Indexes for companies
+CREATE INDEX IF NOT EXISTS idx_companies_user_id ON companies(user_id) WHERE user_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_companies_domain ON companies(company_domain);
+CREATE INDEX IF NOT EXISTS idx_companies_hr_email ON companies(hr_email);
+CREATE INDEX IF NOT EXISTS idx_companies_company_email ON companies(company_email) WHERE company_email IS NOT NULL;
+
+-- Add user_id column to companies if it doesn't exist (for existing databases)
+DO $$ 
+BEGIN
+  BEGIN
+    ALTER TABLE companies ADD COLUMN IF NOT EXISTS user_id uuid REFERENCES users(user_id) ON DELETE CASCADE;
+  EXCEPTION
+    WHEN SQLSTATE '42703' THEN
+      -- Column doesn't exist, try to add it
+      NULL;
+    WHEN OTHERS THEN
+      -- Other errors, re-raise
+      RAISE;
+  END;
+END $$;
+
+-- ============================================================================
 -- JOB POSTINGS TABLE
 -- ============================================================================
 
@@ -240,6 +259,43 @@ CREATE INDEX IF NOT EXISTS idx_applications_interview_time ON applications(inter
 CREATE INDEX IF NOT EXISTS idx_applications_interview_status ON applications(interview_status);
 CREATE INDEX IF NOT EXISTS idx_applications_created_at ON applications(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_applications_external_id ON applications(external_id) WHERE external_id IS NOT NULL;
+
+-- Create view/alias for 'applicants' table (frontend compatibility)
+CREATE OR REPLACE VIEW applicants AS SELECT * FROM applications;
+CREATE OR REPLACE VIEW applicants_view AS SELECT * FROM applications;
+
+-- ============================================================================
+-- RECRUITMENT ANALYTICS TABLE
+-- ============================================================================
+-- This table stores aggregated analytics for job postings
+
+CREATE TABLE IF NOT EXISTS recruitment_analytics (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  job_posting_id uuid NOT NULL REFERENCES job_postings(job_posting_id) ON DELETE CASCADE,
+  company_id uuid REFERENCES companies(company_id) ON DELETE CASCADE,
+  total_applicants integer DEFAULT 0,
+  total_applicants_shortlisted integer DEFAULT 0,
+  total_applicants_rejected integer DEFAULT 0,
+  total_applicants_flagged_to_hr integer DEFAULT 0,
+  ai_overall_analysis text,
+  processing_status text DEFAULT 'processing' CHECK (processing_status IN ('processing', 'in_progress', 'finished')),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE(job_posting_id)
+);
+
+-- Indexes for recruitment_analytics
+CREATE INDEX IF NOT EXISTS idx_recruitment_analytics_job ON recruitment_analytics(job_posting_id);
+CREATE INDEX IF NOT EXISTS idx_recruitment_analytics_company ON recruitment_analytics(company_id);
+CREATE INDEX IF NOT EXISTS idx_recruitment_analytics_status ON recruitment_analytics(processing_status);
+CREATE INDEX IF NOT EXISTS idx_recruitment_analytics_updated ON recruitment_analytics(updated_at DESC);
+
+-- Trigger for updated_at
+DROP TRIGGER IF EXISTS trg_recruitment_analytics_updated_at ON recruitment_analytics;
+CREATE TRIGGER trg_recruitment_analytics_updated_at
+  BEFORE UPDATE ON recruitment_analytics
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
 
 -- ============================================================================
 -- REPORTS TABLE

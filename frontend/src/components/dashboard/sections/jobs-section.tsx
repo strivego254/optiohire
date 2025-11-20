@@ -79,26 +79,59 @@ export function JobsSection() {
         
         console.log('🔄 Loading jobs for user:', user.id)
         
-        // First get the company for this user
-        const { data: company, error: companyError } = await supabase
-          .from('companies')
-          .select('id')
-          .eq('user_id', user.id)
-          .single()
+        // Get company for this user - try user_id first, then fallback to email
+        let company = null
+        let companyError = null
         
-        if (companyError) {
+        // First try to find by user_id (preferred method)
+        if (user.id) {
+          const { data: companiesByUserId, error: errorByUserId } = await supabase
+            .from('companies')
+            .select('company_id, id, user_id, hr_email, company_email')
+            .eq('user_id', user.id)
+            .limit(1)
+          
+          if (!errorByUserId && companiesByUserId && companiesByUserId.length > 0) {
+            company = companiesByUserId[0]
+            console.log('✅ Found company by user_id:', company)
+          } else {
+            companyError = errorByUserId
+          }
+        }
+        
+        // Fallback to email-based lookup if user_id didn't work
+        if (!company) {
+          const { data: companiesByEmail, error: errorByEmail } = await supabase
+            .from('companies')
+            .select('company_id, id, user_id, hr_email, company_email')
+            .or(`hr_email.eq.${user.email},company_email.eq.${user.email}`)
+            .limit(1)
+          
+          if (!errorByEmail && companiesByEmail && companiesByEmail.length > 0) {
+            company = companiesByEmail[0]
+            console.log('✅ Found company by email:', company)
+          } else {
+            companyError = errorByEmail || companyError
+          }
+        }
+        
+        if (!company) {
           console.error('❌ Error fetching company:', companyError)
-          setError('Failed to load company data')
+          console.log('💡 No company found for user:', user.id, 'email:', user.email)
+          setError('No company found. Please create a job posting first.')
+          setIsLoading(false)
           return
         }
         
-        console.log('✅ Found company:', company)
+        // Use company_id from schema (primary key) or fallback to id
+        const companyId = company.company_id || company.id
+        console.log('✅ Found company:', company, 'using company_id:', companyId)
         
         // Then get all job postings for this company
         const { data: jobPostings, error: jobsError } = await supabase
           .from('job_postings')
           .select('*')
-          .eq('company_id', company.id)
+          .eq('company_id', companyId)
           .order('created_at', { ascending: false })
         
         if (jobsError) {
@@ -188,24 +221,59 @@ export function JobsSection() {
       setIsLoading(true)
       setError(null)
       
-      // First get the company for this user
-      const { data: company, error: companyError } = await supabase
-        .from('companies')
-        .select('id')
-        .eq('user_id', user.id)
-        .single()
+      // Get company for this user - try user_id first, then fallback to email
+      let company = null
+      let companyError = null
       
-      if (companyError) {
+      // First try to find by user_id (preferred method)
+      if (user.id) {
+        const { data: companiesByUserId, error: errorByUserId } = await supabase
+          .from('companies')
+          .select('company_id, id, user_id, hr_email, company_email')
+          .eq('user_id', user.id)
+          .limit(1)
+        
+        if (!errorByUserId && companiesByUserId && companiesByUserId.length > 0) {
+          company = companiesByUserId[0]
+          console.log('✅ Found company by user_id:', company)
+        } else {
+          companyError = errorByUserId
+        }
+      }
+      
+      // Fallback to email-based lookup if user_id didn't work
+      if (!company) {
+        const { data: companiesByEmail, error: errorByEmail } = await supabase
+          .from('companies')
+          .select('company_id, id, user_id, hr_email, company_email')
+          .or(`hr_email.eq.${user.email},company_email.eq.${user.email}`)
+          .limit(1)
+        
+        if (!errorByEmail && companiesByEmail && companiesByEmail.length > 0) {
+          company = companiesByEmail[0]
+          console.log('✅ Found company by email:', company)
+        } else {
+          companyError = errorByEmail || companyError
+        }
+      }
+      
+      if (!company) {
         console.error('❌ Error fetching company:', companyError)
-        setError('Failed to load company data')
+        console.log('💡 No company found for user:', user.id, 'email:', user.email)
+        setError('No company found. Please create a job posting first.')
+        setIsLoading(false)
         return
       }
+      
+      // Use company_id from schema (primary key) or fallback to id
+      const companyId = company.company_id || company.id
+      console.log('🔍 Using company_id:', companyId, 'from company:', company)
       
       // Then get all job postings for this company
       const { data: jobPostings, error: jobsError } = await supabase
         .from('job_postings')
         .select('*')
-        .eq('company_id', company.id)
+        .eq('company_id', companyId)
         .order('created_at', { ascending: false })
       
       if (jobsError) {
@@ -220,11 +288,14 @@ export function JobsSection() {
       const jobsWithApplicants: JobWithApplicants[] = []
       
       for (const job of jobPostings || []) {
+        // Use job_posting_id if available, otherwise use id
+        const jobId = job.job_posting_id || job.id
+        
         // First try to get analytics from recruitment_analytics table
         const { data: analytics, error: analyticsError } = await supabase
           .from('recruitment_analytics')
           .select('total_applicants, total_applicants_shortlisted, total_applicants_rejected, total_applicants_flagged_to_hr, ai_overall_analysis, processing_status')
-          .eq('job_posting_id', job.id)
+          .eq('job_posting_id', jobId)
           .single()
         
         // If analytics exist, use them; otherwise fall back to applicants table
@@ -358,9 +429,16 @@ export function JobsSection() {
       
       console.log('✅ New job created via backend:', { jobPostingId, companyId })
       
-      // Immediately refresh jobs list to get the actual job from database
-      console.log('🔄 Refreshing jobs list immediately after creation...')
-      await refreshJobs()
+      // Refresh jobs list to get the actual job from database
+      // Await refresh to ensure job appears in list before showing success
+      console.log('🔄 Refreshing jobs list after creation...')
+      try {
+        await refreshJobs()
+        console.log('✅ Jobs list refreshed - new job should be visible')
+      } catch (err) {
+        console.error('Error refreshing jobs after creation:', err)
+        // Don't throw - job was created successfully, refresh can happen later
+      }
       
       return { job: composedJob, company: { id: companyId } }
     } catch (err) {

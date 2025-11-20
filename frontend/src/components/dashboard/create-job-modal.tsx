@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import { X, Plus, Calendar, Briefcase, MapPin, Users, Loader2, CheckCircle, AlertCircle, Clock } from 'lucide-react'
 import { JobPostingFormData } from '@/types'
 import { SingleDateTimePicker } from '@/components/ui/single-date-time-picker'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 
 interface CreateJobModalProps {
   isOpen: boolean
@@ -36,6 +37,8 @@ export function CreateJobModal({ isOpen, onClose, onSubmit }: CreateJobModalProp
     status: 'idle' | 'sending' | 'success' | 'error'
     message: string
   }>({ status: 'idle', message: '' })
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false)
+  const [createdJobInfo, setCreatedJobInfo] = useState<{ jobTitle: string; companyName: string } | null>(null)
 
   const handleInputChange = (field: keyof JobPostingFormData, value: string | string[]) => {
     setFormData(prev => ({ ...prev, [field]: value }))
@@ -106,30 +109,32 @@ export function CreateJobModal({ isOpen, onClose, onSubmit }: CreateJobModalProp
     setWebhookStatus({ status: 'sending', message: 'Creating job posting...' })
 
     try {
+      setIsSubmitting(true)
+      setWebhookStatus({ status: 'sending', message: 'Creating job posting...' })
+      
       // Submit the job data to the parent component (this will save to database and auto-trigger webhook)
-      await onSubmit(formData)
+      const result = await onSubmit(formData)
       
-      setWebhookStatus({ 
-        status: 'success', 
-        message: 'Job posting created successfully! Refreshing list...' 
-      })
-      
-      // Wait a moment for the refresh to complete, then close modal
-      setTimeout(() => {
-        onClose()
-        // Reset form and status
-        setFormData({
-          company_name: '',
-          company_email: '',
-          hr_email: '',
-          job_title: '',
-          job_description: '',
-          required_skills: [],
-          interview_meeting_link: '',
-          application_deadline: '',
+      if (result && result.job) {
+        // Store job info for success dialog
+        setCreatedJobInfo({
+          jobTitle: formData.job_title,
+          companyName: formData.company_name
         })
-        setWebhookStatus({ status: 'idle', message: '' })
-      }, 1500)
+        
+        // Show success message with job details
+        setWebhookStatus({ 
+          status: 'success', 
+          message: `✅ Success!\n\nJob Title: "${formData.job_title}"\nCompany: ${formData.company_name}\n\nJob has been created successfully and is now listed for progress tracking.` 
+        })
+        
+        // Wait a moment to show success message, then show success dialog
+        setTimeout(() => {
+          setShowSuccessDialog(true)
+        }, 1500)
+      } else {
+        throw new Error('Job creation did not return expected result')
+      }
     } catch (error) {
       console.error('Error creating job posting:', error)
       const errorMessage = error instanceof Error ? error.message : 'An error occurred while creating the job posting'
@@ -137,6 +142,7 @@ export function CreateJobModal({ isOpen, onClose, onSubmit }: CreateJobModalProp
         status: 'error', 
         message: errorMessage
       })
+      // Don't close modal on error - let user see the error and retry
     } finally {
       setIsSubmitting(false)
     }
@@ -360,7 +366,7 @@ export function CreateJobModal({ isOpen, onClose, onSubmit }: CreateJobModalProp
                       {webhookStatus.status === 'sending' && <Loader2 className="w-4 h-4 animate-spin-smooth" />}
                       {webhookStatus.status === 'success' && <CheckCircle className="w-4 h-4" />}
                       {webhookStatus.status === 'error' && <AlertCircle className="w-4 h-4" />}
-                      <span className="text-sm font-figtree font-medium">{webhookStatus.message}</span>
+                      <span className="text-sm font-figtree font-medium whitespace-pre-line">{webhookStatus.message}</span>
                     </div>
                   )}
 
@@ -390,6 +396,54 @@ export function CreateJobModal({ isOpen, onClose, onSubmit }: CreateJobModalProp
           </motion.div>
         </div>
       )}
+      
+      {/* Success Confirmation Dialog */}
+      <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
+        <DialogContent className="sm:max-w-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
+          <DialogHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="flex-shrink-0 w-12 h-12 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                <CheckCircle className="w-6 h-6 text-green-600 dark:text-green-400" />
+              </div>
+              <DialogTitle className="text-xl font-figtree text-gray-900 dark:text-white">
+                Job Created Successfully!
+              </DialogTitle>
+            </div>
+            <DialogDescription className="text-base text-gray-700 dark:text-gray-200 pt-2">
+              <p className="mb-2 text-gray-900 dark:text-gray-100">
+                The job posting <strong className="font-semibold text-gray-900 dark:text-white">"{createdJobInfo?.jobTitle}"</strong> has been successfully created for <strong className="font-semibold text-gray-900 dark:text-white">{createdJobInfo?.companyName}</strong>.
+              </p>
+              <p className="text-sm mt-3 text-gray-600 dark:text-gray-300">
+                The job is now listed in your dashboard for progress tracking. You can monitor applications, review candidates, and track recruitment analytics.
+              </p>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              onClick={() => {
+                setShowSuccessDialog(false)
+                onClose()
+                // Reset form and status
+                setFormData({
+                  company_name: '',
+                  company_email: '',
+                  hr_email: '',
+                  job_title: '',
+                  job_description: '',
+                  required_skills: [],
+                  interview_meeting_link: '',
+                  application_deadline: '',
+                })
+                setWebhookStatus({ status: 'idle', message: '' })
+                setCreatedJobInfo(null)
+              }}
+              className="bg-[#2D2DDD] hover:bg-[#2D2DDD]/90 text-white w-full sm:w-auto"
+            >
+              View Job Listings
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AnimatePresence>
   )
 }

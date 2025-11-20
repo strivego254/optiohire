@@ -49,6 +49,23 @@ export async function createJobPosting(req: Request, res: Response) {
     })
   }
 
+  // Check if user_id column exists BEFORE starting transaction
+  const checkClient = await pool.connect()
+  let hasUserIdColumn = false
+  try {
+    const checkResult = await checkClient.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'companies' AND column_name = 'user_id'
+    `)
+    hasUserIdColumn = checkResult.rows.length > 0
+  } catch (err) {
+    console.log('⚠️ Could not check for user_id column, assuming it does not exist')
+    hasUserIdColumn = false
+  } finally {
+    checkClient.release()
+  }
+
   const client = await pool.connect()
   try {
     await client.query('BEGIN')
@@ -74,29 +91,67 @@ export async function createJobPosting(req: Request, res: Response) {
     }
 
     if (!companyRow) {
-      const ins = await client.query<{ company_id: string }>(
-        `insert into companies (company_name, hr_email, hiring_manager_email, company_domain, company_email)
-         values ($1,$2,$3,$4,$5)
-         returning company_id`,
-        [
-          payload.company_name,
-          payload.hr_email,
-          payload.hr_email, // fallback as hiring manager if not provided
-          companyDomain ?? payload.company_email.split('@')[1],
-          payload.company_email
-        ]
-      )
+      // Get user_id from authenticated request if available
+      const userId = (req as any).userId || null
+      
+      // Insert company with or without user_id based on column existence
+      let ins
+      if (hasUserIdColumn && userId) {
+        ins = await client.query<{ company_id: string }>(
+          `insert into companies (user_id, company_name, hr_email, hiring_manager_email, company_domain, company_email)
+           values ($1,$2,$3,$4,$5,$6)
+           returning company_id`,
+          [
+            userId,
+            payload.company_name,
+            payload.hr_email,
+            payload.hr_email, // fallback as hiring manager if not provided
+            companyDomain ?? payload.company_email.split('@')[1],
+            payload.company_email
+          ]
+        )
+      } else {
+        ins = await client.query<{ company_id: string }>(
+          `insert into companies (company_name, hr_email, hiring_manager_email, company_domain, company_email)
+           values ($1,$2,$3,$4,$5)
+           returning company_id`,
+          [
+            payload.company_name,
+            payload.hr_email,
+            payload.hr_email, // fallback as hiring manager if not provided
+            companyDomain ?? payload.company_email.split('@')[1],
+            payload.company_email
+          ]
+        )
+      }
       companyRow = ins.rows[0]
     } else {
-      await client.query(
-        `update companies
-         set company_name = coalesce($2, company_name),
-             hr_email = $3,
-             company_email = $4,
-             updated_at = now()
-         where company_id = $1`,
-        [companyRow.company_id, payload.company_name, payload.hr_email, payload.company_email]
-      )
+      // Update company and link to user if not already linked
+      const userId = (req as any).userId || null
+      
+      // Update company with or without user_id based on column existence
+      if (hasUserIdColumn && userId) {
+        await client.query(
+          `update companies
+           set user_id = coalesce($2, user_id),
+               company_name = coalesce($3, company_name),
+               hr_email = $4,
+               company_email = $5,
+               updated_at = now()
+           where company_id = $1`,
+          [companyRow.company_id, userId, payload.company_name, payload.hr_email, payload.company_email]
+        )
+      } else {
+        await client.query(
+          `update companies
+           set company_name = coalesce($2, company_name),
+               hr_email = $3,
+               company_email = $4,
+               updated_at = now()
+           where company_id = $1`,
+          [companyRow.company_id, payload.company_name, payload.hr_email, payload.company_email]
+        )
+      }
     }
 
     const companyId = companyRow.company_id
