@@ -19,13 +19,21 @@ function getS3Client(): S3Client | null {
   }
 
   if (!s3Client) {
-    s3Client = new S3Client({
+    const s3Config: any = {
       region: process.env.S3_REGION || 'us-east-1',
       credentials: {
         accessKeyId: s3AccessKey,
         secretAccessKey: s3SecretKey
       }
-    })
+    }
+
+    // Add custom endpoint for Supabase or other S3-compatible services
+    if (process.env.S3_ENDPOINT) {
+      s3Config.endpoint = process.env.S3_ENDPOINT
+      s3Config.forcePathStyle = true // Required for Supabase storage
+    }
+
+    s3Client = new S3Client(s3Config)
   }
 
   return s3Client

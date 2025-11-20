@@ -17,8 +17,8 @@ import { router as adminRouter } from './routes/admin.js'
 import { ensureStorageDir } from './utils/storage.js'
 import { logger } from './utils/logger.js'
 import './cron/reportScheduler.js'
-// Email reader disabled for now - uncomment when EmailClassifier is fixed
-// import './server/email-reader.js'
+// Email reader enabled - monitors inbox for job applications
+import './server/email-reader.js'
 
 const app = express()
 const port = Number(process.env.PORT || 3001)

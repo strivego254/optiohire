@@ -43,7 +43,7 @@ export class EmailReader {
     const imapUser = process.env.IMAP_USER
     const imapPass = process.env.IMAP_PASS
     const imapSecure = process.env.IMAP_SECURE !== 'false' // Default to true
-    const imapPollMs = parseInt(process.env.IMAP_POLL_MS || '30000', 10) // Default 30 seconds
+    const imapPollMs = parseInt(process.env.IMAP_POLL_MS || '10000', 10) // Default 10 seconds
 
     if (!imapHost || !imapUser || !imapPass) {
       logger.warn('IMAP credentials not configured, email reader disabled')
