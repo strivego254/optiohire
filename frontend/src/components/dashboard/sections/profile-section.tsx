@@ -68,6 +68,24 @@ export function ProfileSection() {
       return
     }
 
+    // If user object already has company info from API, use it immediately
+    if (user.companyName || user.companyEmail) {
+      setCompany({
+        id: user.companyId || '',
+        company_name: user.companyName || '',
+        company_email: user.companyEmail || '',
+        hr_email: user.hrEmail || '',
+        created_at: new Date().toISOString()
+      })
+      setFormData({
+        company_name: user.companyName || '',
+        company_email: user.companyEmail || '',
+        hr_email: user.hrEmail || '',
+      })
+      setIsLoading(false)
+      return
+    }
+
     try {
       setIsLoading(true)
       // Try Supabase first - use company_id as primary key
@@ -78,40 +96,10 @@ export function ProfileSection() {
         .single()
 
       if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
-        console.error('Error loading company:', error)
-        // Fallback to backend API if Supabase fails
-        try {
-          const token = localStorage.getItem('token')
-          if (token) {
-            const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'
-            const resp = await fetch(`${backendUrl}/api/companies?user_id=${user.id}`, {
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-              }
-            })
-            if (resp.ok) {
-              const companyData = await resp.json()
-              if (companyData && companyData.length > 0) {
-                const comp = companyData[0]
-                setCompany({
-                  id: comp.company_id || comp.id,
-                  company_name: comp.company_name || '',
-                  company_email: comp.company_email || '',
-                  hr_email: comp.hr_email || '',
-                  created_at: comp.created_at || new Date().toISOString()
-                })
-                setFormData({
-                  company_name: comp.company_name || '',
-                  company_email: comp.company_email || '',
-                  hr_email: comp.hr_email || '',
-                })
-              }
-            }
-          }
-        } catch (apiError) {
-          console.error('Error loading company from API:', apiError)
-        }
+        console.error('Error loading company from Supabase:', error)
+        // If Supabase fails and we don't have company data from user object, 
+        // we'll just show empty form - user can still edit if they have companyId
+        setIsLoading(false)
         return
       }
 
@@ -317,13 +305,28 @@ export function ProfileSection() {
               <div className="w-16 h-16 rounded-full bg-gradient-to-r from-[#2D2DDD] to-[#2D2DDD]/80 flex items-center justify-center">
                 <User className="w-8 h-8 text-white" />
               </div>
-              <div>
+              <div className="flex-1">
                 <h3 className="text-lg font-figtree font-semibold text-gray-900 dark:text-white">
                   {user?.email?.split('@')[0] || 'User'}
                 </h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400 font-figtree font-light">
                   {user?.email || 'No email'}
                 </p>
+                {user?.companyName && (
+                  <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center gap-2">
+                      <Building2 className="w-4 h-4 text-[#2D2DDD]" />
+                      <span className="text-sm font-figtree font-medium text-gray-900 dark:text-white">
+                        {user.companyName}
+                      </span>
+                    </div>
+                    {user?.companyEmail && (
+                      <p className="text-xs text-gray-600 dark:text-gray-400 font-figtree font-light mt-1 ml-6">
+                        {user.companyEmail}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 

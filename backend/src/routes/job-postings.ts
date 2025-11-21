@@ -1,8 +1,10 @@
 import { Router } from 'express'
-import { createJobPosting } from '../api/jobPostingsController.js'
+import { authenticate } from '../middleware/auth.js'
+import { createJobPosting, getJobPostings } from '../api/jobPostingsController.js'
 
 export const router = Router()
 
-router.post('/', createJobPosting)
+router.get('/', authenticate, getJobPostings)
+router.post('/', authenticate, createJobPosting)
 
 

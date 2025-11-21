@@ -72,12 +72,12 @@ export default function SignUpPage() {
   }
 
   return (
-    <div className="w-full h-full min-h-screen bg-black flex items-center justify-center p-4">
+    <div className="w-full min-h-screen bg-black flex items-center justify-center p-4 py-8">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
-        className="flex flex-col md:flex-row w-full max-w-5xl h-auto md:h-[600px] bg-white rounded-3xl shadow-2xl overflow-hidden"
+        className="flex flex-col md:flex-row w-full max-w-5xl min-h-[600px] max-h-[90vh] bg-white rounded-3xl shadow-2xl overflow-hidden"
       >
         {/* Left Panel */}
         <div className="flex-1 relative overflow-hidden hidden md:block">
@@ -103,7 +103,7 @@ export default function SignUpPage() {
         </div>
 
         {/* Right Panel */}
-        <div className="flex-1 p-8 flex flex-col justify-center relative">
+        <div className="flex-1 p-8 flex flex-col relative overflow-y-auto">
           {/* Mobile back button */}
           <div className="md:hidden absolute top-6 left-6 z-10">
             <button
@@ -114,7 +114,7 @@ export default function SignUpPage() {
             </button>
           </div>
 
-          <div className="mb-6">
+          <div className="mb-6 flex-shrink-0">
             <h1 className="text-4xl sm:text-5xl md:text-6xl font-extralight font-figtree leading-[1.05] tracking-tight text-gray-900 mb-2">Create an Account</h1>
             <p className="text-gray-600 font-figtree">
               Already have an account?{' '}
@@ -124,7 +124,7 @@ export default function SignUpPage() {
             </p>
           </div>
 
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 flex-1">
             {/* Email Field */}
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2 font-figtree">

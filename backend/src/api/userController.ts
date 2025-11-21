@@ -33,6 +33,9 @@ export async function getCurrentUser(req: AuthRequest, res: Response) {
     // STRICT: Check if user has a company (except admin)
     let hasCompany = false
     let companyId = null
+    let companyName = null
+    let companyEmail = null
+    let hrEmail = null
     
     if (user.role !== 'admin') {
       try {
@@ -45,20 +48,30 @@ export async function getCurrentUser(req: AuthRequest, res: Response) {
         
         if (checkColumn.rows.length > 0) {
           // user_id column exists, check by user_id
-          const companyCheck = await query<{ company_id: string }>(
-            `SELECT company_id FROM companies WHERE user_id = $1 LIMIT 1`,
+          const companyCheck = await query<{ company_id: string; company_name: string; company_email: string; hr_email: string }>(
+            `SELECT company_id, company_name, company_email, hr_email FROM companies WHERE user_id = $1 LIMIT 1`,
             [userId]
           )
           hasCompany = companyCheck.rows.length > 0
-          companyId = companyCheck.rows[0]?.company_id || null
+          if (hasCompany) {
+            companyId = companyCheck.rows[0]?.company_id || null
+            companyName = companyCheck.rows[0]?.company_name || null
+            companyEmail = companyCheck.rows[0]?.company_email || null
+            hrEmail = companyCheck.rows[0]?.hr_email || null
+          }
         } else {
           // Fallback: check by email (hr_email or company_email)
-          const companyCheck = await query<{ company_id: string }>(
-            `SELECT company_id FROM companies WHERE hr_email = $1 OR company_email = $1 LIMIT 1`,
+          const companyCheck = await query<{ company_id: string; company_name: string; company_email: string; hr_email: string }>(
+            `SELECT company_id, company_name, company_email, hr_email FROM companies WHERE hr_email = $1 OR company_email = $1 LIMIT 1`,
             [user.email]
           )
           hasCompany = companyCheck.rows.length > 0
-          companyId = companyCheck.rows[0]?.company_id || null
+          if (hasCompany) {
+            companyId = companyCheck.rows[0]?.company_id || null
+            companyName = companyCheck.rows[0]?.company_name || null
+            companyEmail = companyCheck.rows[0]?.company_email || null
+            hrEmail = companyCheck.rows[0]?.hr_email || null
+          }
         }
       } catch (err) {
         console.error('Error checking company:', err)
@@ -79,7 +92,10 @@ export async function getCurrentUser(req: AuthRequest, res: Response) {
       created_at: user.created_at,
       updated_at: user.updated_at,
       hasCompany,
-      companyId
+      companyId,
+      companyName,
+      companyEmail,
+      hrEmail
     })
   } catch (err) {
     console.error('Error getting user profile:', err)

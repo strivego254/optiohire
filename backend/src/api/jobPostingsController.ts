@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express'
 import { z } from 'zod'
-import { pool } from '../db/index.js'
+import { pool, query } from '../db/index.js'
 
 const createJobSchema = z.object({
   company_name: z.string().min(2).max(255),
@@ -29,6 +29,159 @@ function domainFromEmail(email: string): string | null {
   const at = email.indexOf('@')
   if (at === -1) return null
   return email.slice(at + 1).toLowerCase()
+}
+
+export async function getJobPostings(req: Request, res: Response) {
+  try {
+    const authReq = req as any
+    const userId = authReq.userId
+
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' })
+    }
+
+    // Find company by user_id
+    let companyId: string | null = null
+    
+    // Check if user_id column exists
+    const checkClient = await pool.connect()
+    let hasUserIdColumn = false
+    try {
+      const checkResult = await checkClient.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'companies' AND column_name = 'user_id'
+      `)
+      hasUserIdColumn = checkResult.rows.length > 0
+    } catch (err) {
+      console.log('⚠️ Could not check for user_id column')
+    } finally {
+      checkClient.release()
+    }
+
+    // Get company_id
+    if (hasUserIdColumn) {
+      const { rows: companyRows } = await query<{ company_id: string }>(
+        `SELECT company_id FROM companies WHERE user_id = $1 LIMIT 1`,
+        [userId]
+      )
+      if (companyRows.length > 0) {
+        companyId = companyRows[0].company_id
+      }
+    }
+
+    if (!companyId) {
+      // Fallback: get user email and find company by email
+      const { rows: userRows } = await query<{ email: string }>(
+        `SELECT email FROM users WHERE user_id = $1`,
+        [userId]
+      )
+      if (userRows.length > 0) {
+        const { rows: companyRows } = await query<{ company_id: string }>(
+          `SELECT company_id FROM companies WHERE hr_email = $1 OR company_email = $1 LIMIT 1`,
+          [userRows[0].email]
+        )
+        if (companyRows.length > 0) {
+          companyId = companyRows[0].company_id
+        }
+      }
+    }
+
+    // Get all job postings from database
+    // Include user's company jobs and also jobs from "strive" company
+    let companyIds: string[] = []
+    if (companyId) {
+      companyIds.push(companyId)
+    }
+    
+    // Also find "strive" company if it exists
+    const { rows: striveCompany } = await query<{ company_id: string }>(
+      `SELECT company_id FROM companies WHERE LOWER(company_name) LIKE '%strive%' LIMIT 1`
+    )
+    if (striveCompany.length > 0 && !companyIds.includes(striveCompany[0].company_id)) {
+      companyIds.push(striveCompany[0].company_id)
+    }
+
+    // Get all job postings - show all jobs if no specific company filter
+    // This allows seeing all jobs including those from "strive"
+    const { rows: jobs } = await query<{
+      job_posting_id: string
+      company_id: string
+      job_title: string
+      job_description: string
+      responsibilities: string
+      skills_required: string[]
+      application_deadline: string | null
+      status: string
+      created_at: string
+      updated_at: string
+    }>(
+      companyIds.length > 0
+        ? `SELECT 
+            job_posting_id,
+            company_id,
+            job_title,
+            job_description,
+            responsibilities,
+            skills_required,
+            application_deadline,
+            status,
+            created_at,
+            updated_at
+          FROM job_postings
+          WHERE company_id = ANY($1)
+          ORDER BY created_at DESC`
+        : `SELECT 
+            job_posting_id,
+            company_id,
+            job_title,
+            job_description,
+            responsibilities,
+            skills_required,
+            application_deadline,
+            status,
+            created_at,
+            updated_at
+          FROM job_postings
+          ORDER BY created_at DESC`,
+      companyIds.length > 0 ? [companyIds] : []
+    )
+
+    // Get applicant counts for each job
+    const jobsWithStats = await Promise.all(
+      jobs.map(async (job) => {
+        const { rows: stats } = await query<{
+          total: string
+          shortlisted: string
+          rejected: string
+          flagged: string
+        }>(
+          `SELECT 
+            COUNT(*) as total,
+            COUNT(*) FILTER (WHERE ai_status = 'SHORTLIST') as shortlisted,
+            COUNT(*) FILTER (WHERE ai_status = 'REJECT') as rejected,
+            COUNT(*) FILTER (WHERE ai_status = 'FLAG') as flagged
+          FROM applications
+          WHERE job_posting_id = $1`,
+          [job.job_posting_id]
+        )
+
+        return {
+          ...job,
+          id: job.job_posting_id,
+          applicant_count: Number(stats[0]?.total || 0),
+          shortlisted_count: Number(stats[0]?.shortlisted || 0),
+          rejected_count: Number(stats[0]?.rejected || 0),
+          flagged_count: Number(stats[0]?.flagged || 0),
+        }
+      })
+    )
+
+    return res.json({ jobs: jobsWithStats })
+  } catch (err) {
+    console.error('Error fetching job postings:', err)
+    return res.status(500).json({ error: 'Failed to fetch job postings' })
+  }
 }
 
 export async function createJobPosting(req: Request, res: Response) {

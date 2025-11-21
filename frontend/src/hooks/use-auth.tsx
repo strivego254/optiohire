@@ -9,6 +9,9 @@ interface AuthUser {
   role?: string
   hasCompany?: boolean
   companyId?: string
+  companyName?: string
+  companyEmail?: string
+  hrEmail?: string
 }
 
 interface AuthContextType {
@@ -61,7 +64,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               created_at: userData.created_at,
               role: userData.role,
               hasCompany: userData.hasCompany ?? false,
-              companyId: userData.companyId || null
+              companyId: userData.companyId || null,
+              companyName: userData.companyName || null,
+              companyEmail: userData.companyEmail || null,
+              hrEmail: userData.hrEmail || null
             })
             
             // STRICT: If user has no company and is not admin, deny access
@@ -111,7 +117,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           created_at: data?.user?.created_at,
           role: data?.user?.role,
           hasCompany: data?.company ? true : (data?.user?.hasCompany ?? true), // Signup creates company, so should be true
-          companyId: data?.company?.company_id || data?.user?.companyId || null
+          companyId: data?.company?.company_id || data?.user?.companyId || null,
+          companyName: data?.company?.company_name || data?.user?.companyName || null,
+          companyEmail: data?.company?.company_email || data?.user?.companyEmail || null,
+          hrEmail: data?.company?.hr_email || data?.user?.hrEmail || null
         })
       }
       return { error: null }
@@ -148,7 +157,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           created_at: data?.user?.created_at,
           role: data?.user?.role,
           hasCompany: data?.user?.hasCompany ?? false,
-          companyId: data?.user?.companyId || null
+          companyId: data?.user?.companyId || null,
+          companyName: data?.user?.companyName || null,
+          companyEmail: data?.user?.companyEmail || null,
+          hrEmail: data?.user?.hrEmail || null
         })
         
         // STRICT: If user has no company and is not admin, deny access immediately
