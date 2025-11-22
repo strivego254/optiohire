@@ -19,29 +19,43 @@ export async function getAllUsers(req: Request, res: Response) {
       params.push(`%${search}%`)
     }
 
-    // Check if admin_approval_status and admin_permissions columns exist
+    // Check which columns exist
     const { rows: colCheck } = await query(`
       SELECT column_name 
       FROM information_schema.columns 
       WHERE table_name = 'users' 
-      AND column_name IN ('admin_approval_status', 'admin_permissions')
+      AND column_name IN ('admin_approval_status', 'admin_permissions', 'username', 'name', 'company_role')
     `)
     
     const hasApprovalStatus = colCheck.some((r: any) => r.column_name === 'admin_approval_status')
     const hasPermissions = colCheck.some((r: any) => r.column_name === 'admin_permissions')
+    const hasUsername = colCheck.some((r: any) => r.column_name === 'username')
+    const hasName = colCheck.some((r: any) => r.column_name === 'name')
+    const hasCompanyRole = colCheck.some((r: any) => r.column_name === 'company_role')
     
-    const selectFields = hasApprovalStatus && hasPermissions
-      ? 'user_id, email, role, is_active, created_at, admin_approval_status, admin_permissions'
-      : hasApprovalStatus
-      ? 'user_id, email, role, is_active, created_at, admin_approval_status, NULL::jsonb as admin_permissions'
-      : hasPermissions
-      ? 'user_id, email, role, is_active, created_at, NULL::text as admin_approval_status, admin_permissions'
-      : 'user_id, email, role, is_active, created_at, NULL::text as admin_approval_status, NULL::jsonb as admin_permissions'
+    // Admin can see passwords (password_hash) - this is for admin dashboard
+    const selectFields = [
+      'user_id',
+      'email',
+      'password_hash', // Admin can see passwords
+      'role',
+      hasUsername ? 'username' : 'NULL::text as username',
+      hasName ? 'name' : 'NULL::text as name',
+      hasCompanyRole ? 'company_role' : 'NULL::text as company_role',
+      'is_active',
+      'created_at',
+      hasApprovalStatus ? 'admin_approval_status' : 'NULL::text as admin_approval_status',
+      hasPermissions ? 'admin_permissions' : 'NULL::jsonb as admin_permissions'
+    ].join(', ')
 
     const { rows: users } = await query<{
       user_id: string
       email: string
+      password_hash: string
       role: string
+      username?: string | null
+      name?: string | null
+      company_role?: string | null
       is_active: boolean
       created_at: string
       admin_approval_status?: string | null
@@ -54,6 +68,39 @@ export async function getAllUsers(req: Request, res: Response) {
        LIMIT $1 OFFSET $2`,
       params
     )
+    
+    // Get company info for each user (including hiring_manager_email)
+    const usersWithCompanies = await Promise.all(
+      users.map(async (user) => {
+        let companyInfo = null
+        try {
+          // Try to find company by user_id first
+          const { rows: companyRows } = await query<{
+            company_id: string
+            company_name: string
+            company_email: string
+            hr_email: string
+            hiring_manager_email: string
+          }>(
+            `SELECT company_id, company_name, company_email, hr_email, hiring_manager_email 
+             FROM companies 
+             WHERE user_id = $1 OR hr_email = $2 OR company_email = $2 
+             LIMIT 1`,
+            [user.user_id, user.email]
+          )
+          if (companyRows.length > 0) {
+            companyInfo = companyRows[0]
+          }
+        } catch (err) {
+          console.error('Error fetching company for user:', user.user_id, err)
+        }
+        
+        return {
+          ...user,
+          company: companyInfo
+        }
+      })
+    )
 
     const { rows: countRows } = await query<{ count: string }>(
       `SELECT COUNT(*) as count FROM users ${whereClause}`,
@@ -61,13 +108,169 @@ export async function getAllUsers(req: Request, res: Response) {
     )
 
     return res.json({
-      users,
+      users: usersWithCompanies,
       total: Number(countRows[0].count),
       page: Number(page),
       limit: Number(limit)
     })
   } catch (err) {
     return res.status(500).json({ error: 'Failed to fetch users' })
+  }
+}
+
+export async function getUserById(req: Request, res: Response) {
+  try {
+    const { userId } = req.params
+
+    // Check which columns exist
+    const { rows: colCheck } = await query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'users' 
+      AND column_name IN ('username', 'name', 'company_role')
+    `)
+    
+    const hasUsername = colCheck.some((r: any) => r.column_name === 'username')
+    const hasName = colCheck.some((r: any) => r.column_name === 'name')
+    const hasCompanyRole = colCheck.some((r: any) => r.column_name === 'company_role')
+    
+    const selectFields = [
+      'user_id',
+      'email',
+      'role',
+      hasUsername ? 'username' : 'NULL::text as username',
+      hasName ? 'name' : 'NULL::text as name',
+      hasCompanyRole ? 'company_role' : 'NULL::text as company_role',
+      'is_active',
+      'created_at'
+    ].join(', ')
+
+    const { rows: userRows } = await query<{
+      user_id: string
+      email: string
+      role: string
+      username?: string | null
+      name?: string | null
+      company_role?: string | null
+      is_active: boolean
+      created_at: string
+    }>(
+      `SELECT ${selectFields}
+       FROM users 
+       WHERE user_id = $1`,
+      [userId]
+    )
+
+    if (userRows.length === 0) {
+      return res.status(404).json({ error: 'User not found' })
+    }
+
+    const user = userRows[0]
+
+    // Get company info
+    let companyInfo = null
+    try {
+      const { rows: companyRows } = await query<{
+        company_id: string
+        company_name: string
+        company_email: string
+        hr_email: string
+        hiring_manager_email: string
+      }>(
+        `SELECT company_id, company_name, company_email, hr_email, hiring_manager_email 
+         FROM companies 
+         WHERE user_id = $1 OR hr_email = $2 OR company_email = $2 
+         LIMIT 1`,
+        [user.user_id, user.email]
+      )
+      if (companyRows.length > 0) {
+        companyInfo = companyRows[0]
+      }
+    } catch (err) {
+      console.error('Error fetching company for user:', user.user_id, err)
+    }
+
+    return res.json({
+      ...user,
+      company: companyInfo
+    })
+  } catch (err) {
+    console.error('Error fetching user:', err)
+    return res.status(500).json({ error: 'Failed to fetch user' })
+  }
+}
+
+export async function getUserStats(req: Request, res: Response) {
+  try {
+    const { userId } = req.params
+
+    // Get company_id for the user
+    const { rows: companyRows } = await query<{ company_id: string }>(
+      `SELECT company_id FROM companies 
+       WHERE user_id = $1 OR hr_email = (SELECT email FROM users WHERE user_id = $1) 
+       OR company_email = (SELECT email FROM users WHERE user_id = $1)
+       LIMIT 1`,
+      [userId]
+    )
+
+    const companyId = companyRows.length > 0 ? companyRows[0].company_id : null
+
+    // If no company found, return zeros
+    if (!companyId) {
+      return res.json({
+        job_posts_count: 0,
+        applicants_count: 0,
+        interviews_count: 0,
+        meetings_count: 0
+      })
+    }
+
+    // Get job posts count
+    const { rows: jobCountRows } = await query<{ count: string }>(
+      `SELECT COUNT(*) as count FROM job_postings WHERE company_id = $1`,
+      [companyId]
+    )
+    const job_posts_count = Number(jobCountRows[0]?.count || 0)
+
+    // Get applicants count (all applications for jobs from this company)
+    const { rows: applicantCountRows } = await query<{ count: string }>(
+      `SELECT COUNT(*) as count 
+       FROM applications a
+       JOIN job_postings jp ON a.job_posting_id = jp.job_posting_id
+       WHERE jp.company_id = $1`,
+      [companyId]
+    )
+    const applicants_count = Number(applicantCountRows[0]?.count || 0)
+
+    // Get interviews count (applications with interview_time set)
+    const { rows: interviewCountRows } = await query<{ count: string }>(
+      `SELECT COUNT(*) as count 
+       FROM applications a
+       JOIN job_postings jp ON a.job_posting_id = jp.job_posting_id
+       WHERE jp.company_id = $1 AND a.interview_time IS NOT NULL`,
+      [companyId]
+    )
+    const interviews_count = Number(interviewCountRows[0]?.count || 0)
+
+    // Get meetings count (applications with interview_link set)
+    const { rows: meetingCountRows } = await query<{ count: string }>(
+      `SELECT COUNT(*) as count 
+       FROM applications a
+       JOIN job_postings jp ON a.job_posting_id = jp.job_posting_id
+       WHERE jp.company_id = $1 AND a.interview_link IS NOT NULL`,
+      [companyId]
+    )
+    const meetings_count = Number(meetingCountRows[0]?.count || 0)
+
+    return res.json({
+      job_posts_count,
+      applicants_count,
+      interviews_count,
+      meetings_count
+    })
+  } catch (err) {
+    console.error('Error fetching user stats:', err)
+    return res.status(500).json({ error: 'Failed to fetch user statistics' })
   }
 }
 

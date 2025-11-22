@@ -12,10 +12,12 @@ import { router as reportsRouter } from './routes/reports.js'
 import { router as contactRouter } from './routes/contact.js'
 import { router as authRouter } from './routes/auth.js'
 import { router as hrReportsRouter } from './routes/hr-reports.js'
+import { router as hrCandidatesRouter } from './routes/hr-candidates.js'
 import { router as scheduleRouter } from './routes/schedule.js'
 import { router as adminRouter } from './routes/admin.js'
 import { router as userPreferencesRouter } from './routes/user-preferences.js'
 import { router as userRouter } from './routes/user.js'
+import { router as analyticsRouter } from './routes/analytics.js'
 import { ensureStorageDir } from './utils/storage.js'
 import { logger } from './utils/logger.js'
 import './cron/reportScheduler.js'
@@ -64,6 +66,7 @@ app.use('/inbound/applications', inboundApplicationsRouter)
 app.use('/applications', applicationsRouter)
 app.use('/companies', reportsRouter) // GET /companies/:id/report
 app.use('/api/hr/reports', hrReportsRouter) // HR report endpoints
+app.use('/api/hr', hrCandidatesRouter) // HR candidate endpoints
 app.use('/api/system/reports', reportsRouter) // System/cron endpoints
 app.use('/api', scheduleRouter) // POST /api/schedule-interview
 app.use('/contact', contactRouter)
@@ -71,6 +74,7 @@ app.use('/auth', authRouter)
 app.use('/api/admin', adminRouter) // Admin endpoints
 app.use('/api/user', userRouter) // User profile endpoints
 app.use('/api/user/preferences', userPreferencesRouter) // User preferences endpoints
+app.use('/api/analytics', analyticsRouter) // Analytics tracking endpoints
 
 // Start
 async function start() {

@@ -6,7 +6,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Calendar, Clock, Video, ExternalLink, Loader2, MapPin } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/use-auth'
 import { JobPosting } from '@/types'
 
@@ -39,80 +38,54 @@ export function InterviewsSection() {
         setIsLoading(true)
         setError(null)
         
-        // Get company for this user
-        const { data: company, error: companyError } = await supabase
-          .from('companies')
-          .select('id')
-          .eq('user_id', user.id)
-          .single()
-        
-        if (companyError) {
-          throw companyError
+        // Fetch jobs from backend API
+        const token = localStorage.getItem('token')
+        if (!token) {
+          setIsLoading(false)
+          return
         }
-        
-        // Get job postings with interview dates
-        const { data: jobs, error: jobsError } = await supabase
-          .from('job_postings')
-          .select('*')
-          .eq('company_id', company.id)
-          .eq('status', 'active')
-          .not('interview_date', 'is', null)
-          .order('interview_date', { ascending: true })
-        
-        if (jobsError) {
-          throw jobsError
-        }
-        
-        // Get detailed applicant statistics for each job
-        const jobIds = ((jobs as Array<{ id: string }> | null) ?? []).map(j => j.id)
-        let applicantStatsMap: { [key: string]: any } = {}
-        
-        if (jobIds.length > 0) {
-          const { data: applicants, error: applicantsError } = await supabase
-            .from('applicants')
-            .select('job_posting_id, status')
-            .in('job_posting_id', jobIds)
-          
-          if (!applicantsError && applicants) {
-            type Stats = { total: number; shortlisted: number; flagged: number; rejected: number; pending: number }
-            applicantStatsMap = (applicants as Array<{ job_posting_id: string; status: string }>).reduce<Record<string, Stats>>((acc, applicant) => {
-              if (!acc[applicant.job_posting_id]) {
-                acc[applicant.job_posting_id] = {
-                  total: 0,
-                  shortlisted: 0,
-                  flagged: 0,
-                  rejected: 0,
-                  pending: 0
-                }
-              }
-              
-              acc[applicant.job_posting_id].total++
-              const statusKey = applicant.status as keyof Stats
-              if (statusKey in acc[applicant.job_posting_id]) {
-                acc[applicant.job_posting_id][statusKey]++
-              }
-              
-              return acc
-            }, {} as Record<string, Stats>)
+
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'
+        const response = await fetch(`${backendUrl}/api/job-postings`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
           }
+        })
+
+        if (!response.ok) {
+          setInterviews([])
+          setIsLoading(false)
+          return
         }
+
+        const data = await response.json()
+        const jobs = data.jobs || []
         
-        // Process interview data
-        const now = new Date()
-        const interviewData = ((jobs as Array<any>) || []).map((job: any) => ({
-          ...job,
-          applicantCount: applicantStatsMap[job.id]?.total || 0,
-          upcomingInterviews: new Date(job.interview_date) > now ? 1 : 0,
-          applicantStats: applicantStatsMap[job.id] || {
-            total: 0,
-            shortlisted: 0,
-            flagged: 0,
-            rejected: 0,
-            pending: 0
-          }
-        })) || []
+        // Filter jobs with meeting links (interview links) and process data
+        const interviewsData: InterviewData[] = jobs
+          .filter((job: any) => job.meeting_link || job.interview_meeting_link)
+          .map((job: any) => ({
+            id: job.job_posting_id || job.id,
+            job_title: job.job_title,
+            status: job.status || 'active',
+            interview_date: job.interview_date || job.created_at,
+            meeting_link: job.meeting_link || job.interview_meeting_link,
+            applicantCount: job.applicant_count || 0,
+            upcomingInterviews: 0,
+            applicantStats: {
+              total: job.applicant_count || 0,
+              shortlisted: job.shortlisted_count || 0,
+              flagged: job.flagged_count || 0,
+              rejected: job.rejected_count || 0,
+              pending: Math.max(0, (job.applicant_count || 0) - 
+                (job.shortlisted_count || 0) - 
+                (job.rejected_count || 0) - 
+                (job.flagged_count || 0))
+            }
+          }))
         
-        setInterviews(interviewData)
+        setInterviews(interviewsData)
       } catch (err) {
         console.error('Error loading interviews:', err)
         setError('Failed to load interview data')
@@ -145,11 +118,11 @@ export function InterviewsSection() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
       >
-        <h1 className="text-2xl md:text-3xl font-figtree font-extralight mb-2 text-[#2D2DDD] dark:text-white">
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-semibold mb-2 text-gray-900 dark:text-white">
           Interviews
         </h1>
-        <p className="text-base md:text-lg font-figtree font-light text-gray-600 dark:text-gray-400">
-          Manage your interview schedule
+        <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">
+          View and manage scheduled interviews
         </p>
       </motion.div>
 

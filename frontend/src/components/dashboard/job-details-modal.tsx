@@ -123,23 +123,25 @@ export function JobDetailsModal({ isOpen, onClose, jobPosting, onEdit }: JobDeta
                           <h3 className="font-figtree font-semibold">Application Deadline</h3>
                         </div>
                         <p className="text-gray-700 dark:text-gray-200 font-figtree font-light">
-                          {formatDateTime(new Date(jobPosting.application_deadline))}
+                          {formatDateTime(jobPosting.application_deadline)}
                         </p>
                       </CardContent>
                     </Card>
                   )}
 
-                  <Card className="bg-gray-50">
-                    <CardContent className="p-4">
-                      <div className="flex items-center gap-3 mb-3">
-                        <Calendar className="w-5 h-5 text-[#2D2DDD]" />
-                        <h3 className="font-figtree font-semibold">Interview Date</h3>
-                      </div>
-                      <p className="text-gray-700 dark:text-gray-200 font-figtree font-light">
-                        {formatDateTime(new Date(jobPosting.interview_date))}
-                      </p>
-                    </CardContent>
-                  </Card>
+                  {jobPosting.interview_start_time && (
+                    <Card className="bg-gray-50">
+                      <CardContent className="p-4">
+                        <div className="flex items-center gap-3 mb-3">
+                          <Calendar className="w-5 h-5 text-[#2D2DDD]" />
+                          <h3 className="font-figtree font-semibold">Interview Start Time</h3>
+                        </div>
+                        <p className="text-gray-700 dark:text-gray-200 font-figtree font-light">
+                          {formatDateTime(jobPosting.interview_start_time)}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  )}
 
                   {jobPosting.interview_meeting_link && (
                     <Card className="bg-gray-50">
@@ -170,7 +172,7 @@ export function JobDetailsModal({ isOpen, onClose, jobPosting, onEdit }: JobDeta
                         <h3 className="font-figtree font-semibold">Created</h3>
                       </div>
                       <p className="text-gray-700 dark:text-gray-200 font-figtree font-light">
-                        {formatDate(new Date(jobPosting.created_at))}
+                        {formatDate(jobPosting.created_at)}
                       </p>
                     </CardContent>
                   </Card>

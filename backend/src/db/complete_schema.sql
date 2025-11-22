@@ -27,12 +27,45 @@ END $$;
 
 CREATE TABLE IF NOT EXISTS users (
   user_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  username text UNIQUE,
+  name text,
   email text UNIQUE NOT NULL,
   password_hash text NOT NULL,
-  created_at timestamptz NOT NULL DEFAULT now()
+  company_role text CHECK (company_role IN ('hr', 'hiring_manager')),
+  role text DEFAULT 'user' CHECK (role IN ('user', 'admin')),
+  is_active boolean DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
 );
 
--- Add role column if it doesn't exist (for existing tables)
+-- Add columns if they don't exist (for existing tables - safe migration)
+-- This ensures the schema works for both new and existing databases
+
+-- Add name column if it doesn't exist
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'users' AND column_name = 'name'
+  ) THEN
+    ALTER TABLE users ADD COLUMN name text;
+    RAISE NOTICE 'Added name column to users table';
+  END IF;
+END $$;
+
+-- Add company_role column if it doesn't exist
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'users' AND column_name = 'company_role'
+  ) THEN
+    ALTER TABLE users ADD COLUMN company_role text CHECK (company_role IN ('hr', 'hiring_manager'));
+    RAISE NOTICE 'Added company_role column to users table';
+  END IF;
+END $$;
+
+-- Add role column if it doesn't exist
 DO $$ 
 BEGIN
   IF NOT EXISTS (
@@ -40,10 +73,11 @@ BEGIN
     WHERE table_name = 'users' AND column_name = 'role'
   ) THEN
     ALTER TABLE users ADD COLUMN role text DEFAULT 'user' CHECK (role IN ('user', 'admin'));
+    RAISE NOTICE 'Added role column to users table';
   END IF;
 END $$;
 
--- Add is_active column if it doesn't exist (for existing tables)
+-- Add is_active column if it doesn't exist
 DO $$ 
 BEGIN
   IF NOT EXISTS (
@@ -51,10 +85,11 @@ BEGIN
     WHERE table_name = 'users' AND column_name = 'is_active'
   ) THEN
     ALTER TABLE users ADD COLUMN is_active boolean DEFAULT true;
+    RAISE NOTICE 'Added is_active column to users table';
   END IF;
 END $$;
 
--- Add updated_at column if it doesn't exist (for existing tables)
+-- Add updated_at column if it doesn't exist
 DO $$ 
 BEGIN
   IF NOT EXISTS (
@@ -62,6 +97,7 @@ BEGIN
     WHERE table_name = 'users' AND column_name = 'updated_at'
   ) THEN
     ALTER TABLE users ADD COLUMN updated_at timestamptz NOT NULL DEFAULT now();
+    RAISE NOTICE 'Added updated_at column to users table';
   END IF;
 END $$;
 
@@ -86,6 +122,43 @@ BEGIN
   ) THEN
     ALTER TABLE users ADD COLUMN admin_permissions jsonb DEFAULT '{}'::jsonb;
     RAISE NOTICE 'Added admin_permissions column to users table';
+  END IF;
+END $$;
+
+-- Add username column if it doesn't exist (for existing tables)
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'users' AND column_name = 'username'
+  ) THEN
+    ALTER TABLE users ADD COLUMN username text UNIQUE;
+    CREATE INDEX IF NOT EXISTS idx_users_username ON users(username) WHERE username IS NOT NULL;
+    RAISE NOTICE 'Added username column to users table';
+  END IF;
+END $$;
+
+-- Add name column if it doesn't exist (for existing tables)
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'users' AND column_name = 'name'
+  ) THEN
+    ALTER TABLE users ADD COLUMN name text;
+    RAISE NOTICE 'Added name column to users table';
+  END IF;
+END $$;
+
+-- Add company_role column if it doesn't exist (for existing tables)
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'users' AND column_name = 'company_role'
+  ) THEN
+    ALTER TABLE users ADD COLUMN company_role text CHECK (company_role IN ('hr', 'hiring_manager'));
+    RAISE NOTICE 'Added company_role column to users table';
   END IF;
 END $$;
 
@@ -121,7 +194,11 @@ BEGIN
   END;
 END $$;
 
+-- Create indexes for users table
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_username ON users(username) WHERE username IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_users_name ON users(name) WHERE name IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_users_company_role ON users(company_role) WHERE company_role IS NOT NULL;
 
 -- Create indexes for role and is_active only if columns exist
 -- Use exception handling to safely handle cases where column might not exist
@@ -595,40 +672,26 @@ COMMENT ON COLUMN applications.interview_status IS 'Interview status: PENDING, S
 COMMENT ON COLUMN job_postings.status IS 'Job posting status: ACTIVE, CLOSED, DRAFT';
 COMMENT ON COLUMN reports.report_type IS 'Type of report: post_deadline, weekly, monthly, etc.';
 
--- ============================================================================
--- ENSURE ROLE AND IS_ACTIVE COLUMNS EXIST
--- ============================================================================
--- Add role and is_active columns if they don't exist (for existing databases)
-DO $$ 
-BEGIN
-  -- Add role column if it doesn't exist
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns 
-    WHERE table_schema = 'public' 
-    AND table_name = 'users' 
-    AND column_name = 'role'
-  ) THEN
-    ALTER TABLE users ADD COLUMN role VARCHAR(20) DEFAULT 'user';
-    CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
-    RAISE NOTICE 'Added role column to users table';
-  END IF;
 
-  -- Add is_active column if it doesn't exist
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns 
-    WHERE table_schema = 'public' 
-    AND table_name = 'users' 
-    AND column_name = 'is_active'
-  ) THEN
-    ALTER TABLE users ADD COLUMN is_active BOOLEAN DEFAULT true;
-    CREATE INDEX IF NOT EXISTS idx_users_active ON users(is_active);
-    RAISE NOTICE 'Added is_active column to users table';
-  END IF;
+-- ============================================================================
+-- ANALYTICS EVENTS TABLE (For Cookie Tracking)
+-- ============================================================================
 
-  -- Update existing users to have default values
-  UPDATE users SET role = COALESCE(role, 'user') WHERE role IS NULL;
-  UPDATE users SET is_active = COALESCE(is_active, true) WHERE is_active IS NULL;
-END $$;
+CREATE TABLE IF NOT EXISTS analytics_events (
+  event_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_type text NOT NULL,
+  session_id text NOT NULL,
+  user_id uuid REFERENCES users(user_id) ON DELETE SET NULL,
+  event_data jsonb DEFAULT '{}'::jsonb,
+  url text,
+  path text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_analytics_events_session ON analytics_events(session_id);
+CREATE INDEX IF NOT EXISTS idx_analytics_events_user ON analytics_events(user_id) WHERE user_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_analytics_events_type ON analytics_events(event_type);
+CREATE INDEX IF NOT EXISTS idx_analytics_events_created ON analytics_events(created_at DESC);
 
 -- ============================================================================
 -- USER PREFERENCES TABLE
@@ -674,80 +737,75 @@ CREATE TRIGGER trg_user_preferences_updated_at
 -- Create default admin user
 -- Email: hirebitapplications@gmail.com
 -- Password: Admin@hirebit2025
--- Use exception handling to safely handle cases where columns might not exist
+-- Uses dynamic SQL to handle optional columns gracefully
 DO $$ 
+DECLARE
+  has_username boolean;
+  has_name boolean;
+  has_company_role boolean;
+  has_role boolean;
+  has_is_active boolean;
+  has_updated_at boolean;
+  sql_text text;
 BEGIN
-  -- Try full INSERT with all columns first
-  BEGIN
-    EXECUTE format('
-      INSERT INTO users (email, password_hash, role, is_active)
-      VALUES (%L, %L, %L, %L)
-      ON CONFLICT (email) DO UPDATE
-      SET 
-        password_hash = EXCLUDED.password_hash,
-        role = %L,
-        is_active = %L,
-        updated_at = now()',
-      'hirebitapplications@gmail.com',
-      '$2b$10$jVhbE8a4vYJ1JRFkh.JsI.N9DrEJa6NrLcFzrbgdy6NgmO5SohAQm',
-      'admin',
-      true,
-      'admin',
-      true
-    );
-  EXCEPTION
-    WHEN SQLSTATE '42703' THEN
-      -- Column doesn't exist, try with fewer columns
-      BEGIN
-        -- Try with just role
-        EXECUTE format('
-          INSERT INTO users (email, password_hash, role)
-          VALUES (%L, %L, %L)
-          ON CONFLICT (email) DO UPDATE
-          SET 
-            password_hash = EXCLUDED.password_hash,
-            role = %L',
-          'hirebitapplications@gmail.com',
-          '$2b$10$jVhbE8a4vYJ1JRFkh.JsI.N9DrEJa6NrLcFzrbgdy6NgmO5SohAQm',
-          'admin',
-          'admin'
-        );
-      EXCEPTION
-        WHEN SQLSTATE '42703' THEN
-          -- role doesn't exist either, try with just is_active
-          BEGIN
-            EXECUTE format('
-              INSERT INTO users (email, password_hash, is_active)
-              VALUES (%L, %L, %L)
-              ON CONFLICT (email) DO UPDATE
-              SET 
-                password_hash = EXCLUDED.password_hash,
-                is_active = %L',
-              'hirebitapplications@gmail.com',
-              '$2b$10$jVhbE8a4vYJ1JRFkh.JsI.N9DrEJa6NrLcFzrbgdy6NgmO5SohAQm',
-              true,
-              true
-            );
-          EXCEPTION
-            WHEN SQLSTATE '42703' THEN
-              -- Neither column exists, insert without them
-              EXECUTE format('
-                INSERT INTO users (email, password_hash)
-                VALUES (%L, %L)
-                ON CONFLICT (email) DO UPDATE
-                SET password_hash = EXCLUDED.password_hash',
-                'hirebitapplications@gmail.com',
-                '$2b$10$jVhbE8a4vYJ1JRFkh.JsI.N9DrEJa6NrLcFzrbgdy6NgmO5SohAQm'
-              );
-            WHEN OTHERS THEN
-              RAISE;
-          END;
-        WHEN OTHERS THEN
-          RAISE;
-      END;
-    WHEN OTHERS THEN
-      RAISE;
-  END;
+  -- Check which columns exist
+  SELECT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'users' AND column_name = 'username'
+  ) INTO has_username;
+  
+  SELECT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'users' AND column_name = 'name'
+  ) INTO has_name;
+  
+  SELECT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'users' AND column_name = 'company_role'
+  ) INTO has_company_role;
+  
+  SELECT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'users' AND column_name = 'role'
+  ) INTO has_role;
+  
+  SELECT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'users' AND column_name = 'is_active'
+  ) INTO has_is_active;
+  
+  SELECT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'users' AND column_name = 'updated_at'
+  ) INTO has_updated_at;
+  
+  -- Build dynamic SQL based on existing columns
+  sql_text := 'INSERT INTO users (email, password_hash';
+  IF has_username THEN sql_text := sql_text || ', username'; END IF;
+  IF has_name THEN sql_text := sql_text || ', name'; END IF;
+  IF has_company_role THEN sql_text := sql_text || ', company_role'; END IF;
+  IF has_role THEN sql_text := sql_text || ', role'; END IF;
+  IF has_is_active THEN sql_text := sql_text || ', is_active'; END IF;
+  sql_text := sql_text || ') VALUES (';
+  sql_text := sql_text || quote_literal('hirebitapplications@gmail.com') || ', ';
+  sql_text := sql_text || quote_literal('$2b$10$jVhbE8a4vYJ1JRFkh.JsI.N9DrEJa6NrLcFzrbgdy6NgmO5SohAQm');
+  IF has_username THEN sql_text := sql_text || ', ' || quote_literal('admin'); END IF;
+  IF has_name THEN sql_text := sql_text || ', NULL'; END IF;
+  IF has_company_role THEN sql_text := sql_text || ', NULL'; END IF;
+  IF has_role THEN sql_text := sql_text || ', ' || quote_literal('admin'); END IF;
+  IF has_is_active THEN sql_text := sql_text || ', true'; END IF;
+  sql_text := sql_text || ') ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash';
+  IF has_username THEN sql_text := sql_text || ', username = COALESCE(users.username, EXCLUDED.username)'; END IF;
+  IF has_role THEN sql_text := sql_text || ', role = ' || quote_literal('admin'); END IF;
+  IF has_is_active THEN sql_text := sql_text || ', is_active = true'; END IF;
+  IF has_updated_at THEN sql_text := sql_text || ', updated_at = now()'; END IF;
+  
+  EXECUTE sql_text;
+  
+  RAISE NOTICE 'Admin user created/updated successfully';
+EXCEPTION
+  WHEN OTHERS THEN
+    RAISE NOTICE 'Error creating admin user: %', SQLERRM;
 END $$;
 
 -- ============================================================================

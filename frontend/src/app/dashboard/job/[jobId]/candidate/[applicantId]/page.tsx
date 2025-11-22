@@ -6,8 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScheduleInterviewModal } from '@/components/modals/ScheduleInterviewModal'
-import { Loader2, ArrowLeft, ExternalLink } from 'lucide-react'
+import { Loader2, ArrowLeft, ExternalLink, Home, Briefcase } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
+import { TopNavigation } from '@/components/dashboard/top-navigation'
 
 interface CandidateDetail {
   id: string
@@ -46,32 +47,53 @@ export default function CandidateDetailPage() {
 
   useEffect(() => {
     if (!user) return
+    if (!jobId || !applicantId) {
+      setError('Invalid job ID or applicant ID')
+      setLoading(false)
+      return
+    }
     fetchCandidateDetail()
     fetchMeetingLink()
-  }, [applicantId, user])
+  }, [applicantId, jobId, user])
 
   const fetchCandidateDetail = async () => {
     try {
       setLoading(true)
+      setError(null)
+      
+      if (!applicantId) {
+        throw new Error('Invalid applicant ID')
+      }
+      
       const token = localStorage.getItem('token')
       if (!token) {
         throw new Error('Not authenticated')
       }
 
-      const response = await fetch(`/api/hr/candidates/${applicantId}`, {
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'
+      const response = await fetch(`${backendUrl}/api/hr/candidates/${applicantId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
       })
 
       if (!response.ok) {
-        throw new Error('Failed to fetch candidate details')
+        const errorData = await response.json().catch(() => ({}))
+        if (response.status === 404) {
+          throw new Error('Candidate not found')
+        }
+        throw new Error(errorData.error || 'Failed to fetch candidate details')
       }
 
       const data = await response.json()
+      if (!data || !data.id) {
+        throw new Error('Invalid candidate data received')
+      }
       setCandidate(data)
     } catch (err: any) {
       setError(err.message || 'Failed to load candidate details')
+      setCandidate(null)
     } finally {
       setLoading(false)
     }
@@ -139,15 +161,49 @@ export default function CandidateDetailPage() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <Button
-        variant="ghost"
-        onClick={() => router.back()}
-        className="mb-4"
-      >
-        <ArrowLeft className="mr-2 h-4 w-4" />
-        Back to Candidates
-      </Button>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+      {/* Top Navigation */}
+      <div className="sticky top-0 z-10 bg-white/95 dark:bg-gray-950/95 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 shadow-sm">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <TopNavigation />
+          </div>
+        </div>
+      </div>
+
+      <div className="container mx-auto p-6 space-y-6">
+        {/* Back Button and Breadcrumb */}
+        <div className="flex items-center justify-between gap-4">
+          <Button
+            variant="ghost"
+            onClick={() => {
+              if (!jobId) {
+                console.error('Missing jobId for navigation')
+                router.push('/dashboard/jobs')
+                return
+              }
+              try {
+                router.push(`/dashboard/job/${jobId}/shortlisted`)
+              } catch (error) {
+                console.error('Navigation error:', error)
+                router.push('/dashboard/jobs')
+              }
+            }}
+            className="flex items-center gap-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Candidates
+          </Button>
+          
+          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+            <Home className="w-4 h-4" />
+            <span>/</span>
+            <Briefcase className="w-4 h-4" />
+            <span>Jobs</span>
+            <span>/</span>
+            <span>Candidate Details</span>
+          </div>
+        </div>
 
       {/* Header */}
       <Card>
@@ -321,6 +377,7 @@ export default function CandidateDetailPage() {
           setIsModalOpen(false)
         }}
       />
+      </div>
     </div>
   )
 }

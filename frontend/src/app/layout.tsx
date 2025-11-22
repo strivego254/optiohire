@@ -4,6 +4,8 @@ import './globals.css'
 import { AuthProvider } from '@/hooks/use-auth'
 import { ThemeProvider } from '@/components/providers/theme-provider'
 import { ConditionalLayout } from '@/components/layout/conditional-layout'
+import { CookieConsent } from '@/components/ui/cookie-consent'
+import { CookieProvider } from '@/components/providers/cookie-provider'
 
 const figtree = Figtree({
   subsets: ['latin'],
@@ -81,11 +83,14 @@ export default function RootLayout({
       </head>
       <body className={`${figtree.className} antialiased bg-background text-foreground`}>
         <ThemeProvider>
-          <AuthProvider>
-            <div className="min-h-screen bg-background">
-              <ConditionalLayout>{children}</ConditionalLayout>
-            </div>
-          </AuthProvider>
+          <CookieProvider>
+            <AuthProvider>
+              <div className="min-h-screen bg-background">
+                <ConditionalLayout>{children}</ConditionalLayout>
+                <CookieConsent />
+              </div>
+            </AuthProvider>
+          </CookieProvider>
         </ThemeProvider>
       </body>
     </html>

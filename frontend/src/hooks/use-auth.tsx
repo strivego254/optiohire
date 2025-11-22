@@ -7,17 +7,21 @@ interface AuthUser {
   id?: string
   created_at?: string
   role?: string
+  username?: string | null
+  name?: string | null
+  companyRole?: string | null
   hasCompany?: boolean
   companyId?: string
   companyName?: string
   companyEmail?: string
   hrEmail?: string
+  hiringManagerEmail?: string | null
 }
 
 interface AuthContextType {
   user: null | AuthUser
   loading: boolean
-  signUp: (email: string, password: string) => Promise<{ error: null | { message: string } }>
+  signUp: (username: string, name: string, email: string, password: string, company_role: string, organization_name: string, company_email: string, hr_email: string, hiring_manager_email: string) => Promise<{ error: null | { message: string } }>
   signIn: (email: string, password: string) => Promise<{ error: null | { message: string } }>
   signOut: () => Promise<void>
 }
@@ -59,15 +63,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (resp.ok) {
             const userData = await resp.json()
             setUser({
+              username: userData.username || null,
+              name: userData.name || null,
               email: userData.email,
               id: userData.id || userData.user_id,
               created_at: userData.created_at,
               role: userData.role,
+              companyRole: userData.company_role || userData.companyRole || null,
               hasCompany: userData.hasCompany ?? false,
               companyId: userData.companyId || null,
               companyName: userData.companyName || null,
               companyEmail: userData.companyEmail || null,
-              hrEmail: userData.hrEmail || null
+              hrEmail: userData.hrEmail || null,
+              hiringManagerEmail: userData.hiring_manager_email || userData.hiringManagerEmail || null
             })
             
             // STRICT: If user has no company and is not admin, deny access
@@ -96,14 +104,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loadUserProfile()
   }, [])
 
-  const signUp = async (email: string, password: string, company_name: string, company_email: string, hr_email: string) => {
+  const signUp = async (username: string, name: string, email: string, password: string, company_role: string, organization_name: string, company_email: string, hr_email: string, hiring_manager_email: string) => {
     try {
       setLoading(true)
       const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'
       const resp = await fetch(`${backendUrl}/auth/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, company_name, company_email, hr_email })
+        body: JSON.stringify({ 
+          username, 
+          name, 
+          email, 
+          password, 
+          company_role, 
+          company_name: organization_name, 
+          company_email, 
+          hr_email, 
+          hiring_manager_email 
+        })
       })
       const data = await resp.json().catch(() => ({}))
       if (!resp.ok) {
@@ -112,15 +130,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (data?.token) {
         localStorage.setItem('token', data.token)
         setUser({ 
+          username: data?.user?.username || username,
+          name: data?.user?.name || name,
           email: email.toLowerCase(),
           id: data?.user?.id || data?.user?.user_id, // Support both formats
           created_at: data?.user?.created_at,
           role: data?.user?.role,
+          companyRole: data?.user?.company_role || company_role,
           hasCompany: data?.company ? true : (data?.user?.hasCompany ?? true), // Signup creates company, so should be true
           companyId: data?.company?.company_id || data?.user?.companyId || null,
-          companyName: data?.company?.company_name || data?.user?.companyName || null,
-          companyEmail: data?.company?.company_email || data?.user?.companyEmail || null,
-          hrEmail: data?.company?.hr_email || data?.user?.hrEmail || null
+          companyName: data?.company?.company_name || data?.user?.companyName || organization_name,
+          companyEmail: data?.company?.company_email || data?.user?.companyEmail || company_email,
+          hrEmail: data?.company?.hr_email || data?.user?.hrEmail || hr_email,
+          hiringManagerEmail: data?.company?.hiring_manager_email || data?.user?.hiringManagerEmail || hiring_manager_email
         })
       }
       return { error: null }

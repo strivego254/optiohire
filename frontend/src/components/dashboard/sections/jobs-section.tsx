@@ -10,6 +10,7 @@ import {
   Plus, 
   Calendar,
   Users,
+  UserCheck,
   MapPin,
   ExternalLink,
   Edit,
@@ -25,6 +26,7 @@ import { JobPosting, JobPostingFormData } from '@/types'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/use-auth'
 import { useJobsRealtime, useApplicantsRealtime, useAnalyticsRealtime } from '@/hooks/use-realtime-data'
+import { useRouter } from 'next/navigation'
 
 interface JobWithApplicants extends JobPosting {
   applicantStats: {
@@ -40,6 +42,7 @@ interface JobWithApplicants extends JobPosting {
 
 export function JobsSection() {
   const { user } = useAuth()
+  const router = useRouter()
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
@@ -97,12 +100,24 @@ export function JobsSection() {
 
         if (!response.ok) {
           if (response.status === 404) {
-            setError('No company found. Please create a job posting first.')
-          } else if (response.status === 401) {
+            // No jobs found - this is okay, just show empty state
+            setJobs([])
+            setError(null)
+            setIsLoading(false)
+            return
+          } else if (response.status === 401 || response.status === 403) {
             setError('Authentication failed. Please sign in again.')
+            // Clear token and redirect
+            localStorage.removeItem('token')
+            window.location.href = '/auth/signin'
           } else {
             const errorData = await response.json().catch(() => ({}))
-            setError(errorData.error || 'Failed to load job postings')
+            // If it's a permission error, show helpful message
+            if (errorData.error?.includes('Company profile required') || errorData.error?.includes('Access denied')) {
+              setError('Your account needs a company profile. Please contact support.')
+            } else {
+              setError(errorData.error || 'Failed to load job postings')
+            }
           }
           setIsLoading(false)
           return
@@ -120,24 +135,38 @@ export function JobsSection() {
             ...job,
             id: jobId,
             job_posting_id: jobId,
+            job_title: job.job_title || 'Untitled Job',
+            job_description: job.job_description || '',
+            required_skills: Array.isArray(job.required_skills) ? job.required_skills : (job.skills_required ? (Array.isArray(job.skills_required) ? job.skills_required : [job.skills_required]) : []),
+            meeting_link: job.meeting_link || job.interview_meeting_link || null,
+            interview_meeting_link: job.interview_meeting_link || job.meeting_link || null,
+            application_deadline: job.application_deadline || null,
+            status: job.status || 'ACTIVE',
+            created_at: job.created_at || new Date().toISOString(),
             applicantStats: {
-              total: job.applicant_count || 0,
-              shortlisted: job.shortlisted_count || 0,
-              rejected: job.rejected_count || 0,
-              flagged: job.flagged_count || 0,
-              pending: Math.max(0, (job.applicant_count || 0) - 
-                (job.shortlisted_count || 0) - 
-                (job.rejected_count || 0) - 
-                (job.flagged_count || 0)),
+              total: Number(job.applicant_count || 0),
+              shortlisted: Number(job.shortlisted_count || 0),
+              rejected: Number(job.rejected_count || 0),
+              flagged: Number(job.flagged_count || 0),
+              pending: Math.max(0, Number(job.applicant_count || 0) - 
+                Number(job.shortlisted_count || 0) - 
+                Number(job.rejected_count || 0) - 
+                Number(job.flagged_count || 0)),
             }
           }
         })
         
         console.log('✅ Processed jobs with applicants:', jobsWithApplicants.length)
         setJobs(jobsWithApplicants)
-      } catch (err) {
+      } catch (err: any) {
         console.error('❌ Error loading jobs:', err)
-        setError('An error occurred while loading jobs')
+        const errorMessage = err?.message || 'An error occurred while loading jobs'
+        setError(errorMessage)
+        // Don't show error if it's just no jobs found
+        if (errorMessage.includes('No company found') || errorMessage.includes('404')) {
+          setJobs([])
+          setError(null)
+        }
       } finally {
         setIsLoading(false)
       }
@@ -173,12 +202,24 @@ export function JobsSection() {
 
       if (!response.ok) {
         if (response.status === 404) {
-          setError('No company found. Please create a job posting first.')
-        } else if (response.status === 401) {
+          // No jobs found - this is okay, just show empty state
+          setJobs([])
+          setError(null)
+          setIsLoading(false)
+          return
+        } else if (response.status === 401 || response.status === 403) {
           setError('Authentication failed. Please sign in again.')
+          // Clear token and redirect
+          localStorage.removeItem('token')
+          window.location.href = '/auth/signin'
         } else {
           const errorData = await response.json().catch(() => ({}))
-          setError(errorData.error || 'Failed to load job postings')
+          // If it's a permission error, show helpful message
+          if (errorData.error?.includes('Company profile required') || errorData.error?.includes('Access denied')) {
+            setError('Your account needs a company profile. Please contact support.')
+          } else {
+            setError(errorData.error || 'Failed to load job postings')
+          }
         }
         setIsLoading(false)
         return
@@ -196,23 +237,37 @@ export function JobsSection() {
           ...job,
           id: jobId,
           job_posting_id: jobId,
+          job_title: job.job_title || 'Untitled Job',
+          job_description: job.job_description || '',
+          required_skills: Array.isArray(job.required_skills) ? job.required_skills : (job.skills_required ? (Array.isArray(job.skills_required) ? job.skills_required : [job.skills_required]) : []),
+          meeting_link: job.meeting_link || job.interview_meeting_link || null,
+          interview_meeting_link: job.interview_meeting_link || job.meeting_link || null,
+          application_deadline: job.application_deadline || null,
+          status: job.status || 'ACTIVE',
+          created_at: job.created_at || new Date().toISOString(),
           applicantStats: {
-            total: job.applicant_count || 0,
-            shortlisted: job.shortlisted_count || 0,
-            rejected: job.rejected_count || 0,
-            flagged: job.flagged_count || 0,
-            pending: Math.max(0, (job.applicant_count || 0) - 
-              (job.shortlisted_count || 0) - 
-              (job.rejected_count || 0) - 
-              (job.flagged_count || 0)),
+            total: Number(job.applicant_count || 0),
+            shortlisted: Number(job.shortlisted_count || 0),
+            rejected: Number(job.rejected_count || 0),
+            flagged: Number(job.flagged_count || 0),
+            pending: Math.max(0, Number(job.applicant_count || 0) - 
+              Number(job.shortlisted_count || 0) - 
+              Number(job.rejected_count || 0) - 
+              Number(job.flagged_count || 0)),
           }
         }
       })
       
       setJobs(jobsWithApplicants)
-    } catch (err) {
+    } catch (err: any) {
       console.error('❌ Error refreshing jobs:', err)
-      setError('An error occurred while refreshing jobs')
+      const errorMessage = err?.message || 'An error occurred while refreshing jobs'
+      setError(errorMessage)
+      // Don't show error if it's just no jobs found
+      if (errorMessage.includes('No company found') || errorMessage.includes('404')) {
+        setJobs([])
+        setError(null)
+      }
     } finally {
       setIsLoading(false)
     }
@@ -491,11 +546,11 @@ export function JobsSection() {
         className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
       >
         <div>
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-figtree font-extralight mb-2 text-[#2D2DDD] dark:text-white">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-semibold mb-2 text-gray-900 dark:text-white">
             Job Postings
           </h1>
-          <p className="text-sm sm:text-base md:text-lg font-figtree font-light text-gray-600 dark:text-gray-400">
-            Manage your active recruitment campaigns
+          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">
+            Create and manage your job postings
           </p>
         </div>
         <div className="flex flex-row gap-2 sm:gap-3 w-full sm:w-auto">
@@ -554,16 +609,18 @@ export function JobsSection() {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="text-center py-12"
+              className="text-center py-16"
             >
-              <Briefcase className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-xl font-semibold mb-2">No job postings yet</h3>
-              <p className="text-muted-foreground mb-6">
-                Create your first job posting to start recruiting
+              <div className="w-20 h-20 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-6">
+                <Briefcase className="w-10 h-10 text-gray-400" />
+              </div>
+              <h3 className="text-xl font-semibold mb-2 text-gray-900 dark:text-white">No job postings yet</h3>
+              <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-md mx-auto">
+                Get started by creating your first job posting. You'll be able to manage applicants and track your recruitment pipeline.
               </p>
               <Button 
-                variant="gradient" 
                 onClick={() => setIsCreateModalOpen(true)}
+                className="bg-[#2D2DDD] hover:bg-[#2D2DDD]/90 text-white"
               >
                 <Plus className="w-4 h-4 mr-2" />
                 Create Your First Job
@@ -589,60 +646,44 @@ export function JobsSection() {
                         {job.status}
                       </Badge>
                     </div>
-                    <p className="text-muted-foreground font-figtree font-light mb-4">
-                      {job.job_description}
+                    <p className="text-gray-600 dark:text-gray-400 font-figtree font-light mb-4 line-clamp-2">
+                      {job.job_description?.substring(0, 150)}{job.job_description && job.job_description.length > 150 ? '...' : ''}
                     </p>
-                    <div className="flex items-center gap-6 text-sm text-muted-foreground font-figtree font-light mb-3">
-                      <div className="flex items-center gap-1">
-                        <Calendar className="w-4 h-4" />
-                        Interview: {new Date(job.interview_date).toLocaleDateString()}
-                      </div>
-                      <div className="flex items-center gap-1">
+                    <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600 dark:text-gray-400 mb-4">
+                      <div className="flex items-center gap-2">
                         <Users className="w-4 h-4" />
-                        {Array.isArray(job.required_skills) ? job.required_skills.length : 0} skills required
+                        <span className="font-medium">{job.applicantStats?.total || 0} applicants</span>
                       </div>
-                    </div>
-                    
-                    {/* AI Analysis Section */}
-                    {job.analytics && (
-                      <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-4 mb-4 border border-blue-200">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Brain className="w-5 h-5 text-blue-600" />
-                          <h4 className="text-sm font-semibold text-gray-700 font-figtree">AI Analysis</h4>
-                          {job.processingStatus && (
-                            <Badge 
-                              variant={job.processingStatus === 'finished' ? 'success' : 'warning'}
-                              className="ml-auto"
-                            >
-                              {job.processingStatus === 'finished' ? 'Complete' : job.processingStatus}
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="text-sm text-gray-700 font-figtree font-light leading-relaxed">
-                          {job.analytics}
-                        </p>
-                      </div>
-                    )}
-                    
-                    {/* Processing Status Indicator */}
-                    {job.processingStatus && job.processingStatus !== 'finished' && !job.analytics && (
-                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+                      {job.applicantStats?.shortlisted > 0 && (
                         <div className="flex items-center gap-2">
-                          <div className="animate-spin-smooth rounded-full h-4 w-4 border-b-2 border-yellow-600"></div>
-                          <span className="text-sm text-yellow-700 font-figtree">
-                            Processing applicant data... ({job.processingStatus})
-                          </span>
+                          <UserCheck className="w-4 h-4 text-green-600" />
+                          <span className="text-green-600 font-medium">{job.applicantStats.shortlisted} shortlisted</span>
                         </div>
-                      </div>
-                    )}
+                      )}
+                      {job.application_deadline && (
+                        <div className="flex items-center gap-2">
+                          <Calendar className="w-4 h-4" />
+                          <span>Deadline: {new Date(job.application_deadline).toLocaleDateString()}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex flex-col gap-2 mt-4 sm:mt-0">
+                  <div className="flex flex-col gap-2 mt-4 sm:mt-0 sm:min-w-[140px]">
+                    <Button 
+                      variant="default" 
+                      size="sm"
+                      onClick={() => router.push(`/dashboard/job/${job.id}/shortlisted`)}
+                      className="bg-[#2D2DDD] text-white hover:bg-[#2D2DDD]/90 w-full"
+                    >
+                      <Users className="w-4 h-4 mr-2" />
+                      View Candidates
+                    </Button>
                     <div className="flex flex-row gap-2">
                       <Button 
                         variant="outline" 
                         size="sm"
                         onClick={() => handleEditJob(job.id)}
-                        className="bg-[#2D2DDD] text-white border-[#2D2DDD] hover:bg-[#2D2DDD]/90 hover:border-[#2D2DDD]/90 dark:bg-[#2D2DDD] dark:text-white dark:border-[#2D2DDD] dark:hover:bg-[#2D2DDD]/90 flex-1 sm:w-auto"
+                        className="flex-1 border-[#2D2DDD] text-[#2D2DDD] hover:bg-[#2D2DDD] hover:text-white"
                       >
                         <Edit className="w-4 h-4 mr-1" />
                         Edit

@@ -60,10 +60,12 @@ export function JobPostingCard({ jobPosting, onViewDetails, delay = 0 }: JobPost
         <CardContent className="pt-0">
           <div className="space-y-4">
             {/* Interview Date */}
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Calendar className="w-4 h-4" />
-              <span>Interview: {formatDateTime(new Date(jobPosting.interview_date))}</span>
-            </div>
+            {jobPosting.interview_start_time && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Calendar className="w-4 h-4" />
+                <span>Interview: {formatDateTime(jobPosting.interview_start_time)}</span>
+              </div>
+            )}
 
             {/* Skills */}
             <div className="flex flex-wrap gap-1">

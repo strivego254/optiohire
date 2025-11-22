@@ -23,7 +23,7 @@ export function ConditionalLayout({ children }: ConditionalLayoutProps) {
   return (
     <>
       <Navbar />
-      <main>{children}</main>
+      <main className="pt-0">{children}</main>
       <Footer />
     </>
   )

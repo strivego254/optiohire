@@ -31,9 +31,64 @@ export function ReportsSection() {
   const [isReportModalOpen, setIsReportModalOpen] = useState(false)
 
   useEffect(() => {
-    // Temporarily disable Supabase-based loading; backend endpoints for listing jobs will replace this.
-    setIsLoading(false)
-    setItems([])
+    const loadReports = async () => {
+      if (!user) {
+        setIsLoading(false)
+        return
+      }
+      
+      try {
+        setIsLoading(true)
+        setError(null)
+        
+        const token = localStorage.getItem('token')
+        if (!token) {
+          setIsLoading(false)
+          return
+        }
+
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'
+        const response = await fetch(`${backendUrl}/api/job-postings`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        })
+
+        if (!response.ok) {
+          setItems([])
+          setIsLoading(false)
+          return
+        }
+
+        const data = await response.json()
+        const jobs = data.jobs || []
+        
+        const reportItems: JobReportItem[] = jobs.map((job: any) => ({
+          job: {
+            id: job.job_posting_id || job.id,
+            job_title: job.job_title,
+            status: job.status || 'active',
+            created_at: job.created_at
+          },
+          totals: {
+            total: job.applicant_count || 0,
+            shortlisted: job.shortlisted_count || 0,
+            flagged: job.flagged_count || 0,
+            rejected: job.rejected_count || 0
+          }
+        }))
+        
+        setItems(reportItems)
+      } catch (err) {
+        console.error('Error loading reports:', err)
+        setError('Failed to load reports')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    
+    loadReports()
   }, [user])
 
   return (
@@ -43,8 +98,8 @@ export function ReportsSection() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
       >
-        <h1 className="text-2xl md:text-3xl font-figtree font-extralight mb-2 text-[#2D2DDD] dark:text-white">Reports & Analytics</h1>
-        <p className="text-base md:text-lg font-figtree font-light text-gray-600 dark:text-gray-400">All job posts with applicant breakdown</p>
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-semibold mb-2 text-gray-900 dark:text-white">Reports & Analytics</h1>
+        <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">Comprehensive reports and insights for your job postings</p>
       </motion.div>
 
       {error && (

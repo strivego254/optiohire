@@ -12,6 +12,8 @@ import { useAuth } from '@/hooks/use-auth'
 import { Eye, EyeOff, ArrowLeft } from 'lucide-react'
 
 const signUpSchema = z.object({
+  username: z.string().min(3, 'Username must be at least 3 characters').max(50, 'Username must be less than 50 characters').regex(/^[a-zA-Z0-9_]+$/, 'Username can only contain letters, numbers, and underscores'),
+  name: z.string().min(2, 'Name must be at least 2 characters').max(100, 'Name must be less than 100 characters'),
   email: z.string().email('Please enter a valid email address'),
   password: z.string()
     .min(8, 'Password must be at least 8 characters')
@@ -20,9 +22,13 @@ const signUpSchema = z.object({
     .regex(/[0-9]/, 'Password must contain at least one number')
     .regex(/[^A-Za-z0-9]/, 'Password must contain at least one special character'),
   confirmPassword: z.string(),
-  company_name: z.string().min(2, 'Company name must be at least 2 characters'),
+  company_role: z.enum(['hr', 'hiring_manager'], {
+    errorMap: () => ({ message: 'Please select your role in the company' })
+  }),
+  organization_name: z.string().min(2, 'Organization name must be at least 2 characters').max(255, 'Organization name is too long'),
   company_email: z.string().email('Please enter a valid company email address'),
   hr_email: z.string().email('Please enter a valid HR email address'),
+  hiring_manager_email: z.string().email('Please enter a valid hiring manager email address'),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ["confirmPassword"],
@@ -51,7 +57,17 @@ export default function SignUpPage() {
     setError(null)
 
     try {
-      const { error } = await signUp(data.email, data.password, data.company_name, data.company_email, data.hr_email)
+      const { error } = await signUp(
+        data.username,
+        data.name,
+        data.email, 
+        data.password, 
+        data.company_role,
+        data.organization_name, 
+        data.company_email, 
+        data.hr_email,
+        data.hiring_manager_email
+      )
       
       if (error) {
         setError(error.message)
@@ -125,10 +141,49 @@ export default function SignUpPage() {
           </div>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 flex-1">
+            {/* Username Field */}
+            <div>
+              <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2 font-figtree">
+                Username <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                id="username"
+                placeholder="Enter your username"
+                {...register('username')}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all font-figtree bg-white text-gray-900 placeholder-gray-500 text-sm"
+                required
+              />
+              {errors.username && (
+                <p className="text-sm text-red-500 mt-1 font-figtree">{errors.username.message}</p>
+              )}
+              <p className="text-xs text-gray-500 mt-1 font-figtree">
+                Letters, numbers, and underscores only (3-50 characters)
+              </p>
+            </div>
+
+            {/* Name Field */}
+            <div>
+              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2 font-figtree">
+                Full Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                id="name"
+                placeholder="Enter your full name"
+                {...register('name')}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all font-figtree bg-white text-gray-900 placeholder-gray-500 text-sm"
+                required
+              />
+              {errors.name && (
+                <p className="text-sm text-red-500 mt-1 font-figtree">{errors.name.message}</p>
+              )}
+            </div>
+
             {/* Email Field */}
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2 font-figtree">
-                Email Address
+                Email Address <span className="text-red-500">*</span>
               </label>
               <input
                 type="email"
@@ -212,21 +267,44 @@ export default function SignUpPage() {
             <div className="pt-4 border-t border-gray-200">
               <h3 className="text-lg font-semibold text-gray-900 mb-4 font-figtree">Company Information</h3>
               
-              {/* Company Name Field */}
+              {/* Company Role Field */}
               <div className="mb-4">
-                <label htmlFor="company_name" className="block text-sm font-medium text-gray-700 mb-2 font-figtree">
-                  Company Name <span className="text-red-500">*</span>
+                <label htmlFor="company_role" className="block text-sm font-medium text-gray-700 mb-2 font-figtree">
+                  Your Role in Company <span className="text-red-500">*</span>
+                </label>
+                <select
+                  id="company_role"
+                  {...register('company_role')}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all font-figtree bg-white text-gray-900 text-sm"
+                  required
+                >
+                  <option value="">Select your role</option>
+                  <option value="hr">HR Manager</option>
+                  <option value="hiring_manager">Hiring Manager</option>
+                </select>
+                {errors.company_role && (
+                  <p className="text-sm text-red-500 mt-1 font-figtree">{errors.company_role.message}</p>
+                )}
+                <p className="text-xs text-gray-500 mt-1 font-figtree">
+                  Select your role in the company
+                </p>
+              </div>
+              
+              {/* Organization Name Field */}
+              <div className="mb-4">
+                <label htmlFor="organization_name" className="block text-sm font-medium text-gray-700 mb-2 font-figtree">
+                  Organization Name <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
-                  id="company_name"
-                  placeholder="Enter your company name"
-                  {...register('company_name')}
+                  id="organization_name"
+                  placeholder="Enter your organization name"
+                  {...register('organization_name')}
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all font-figtree bg-white text-gray-900 placeholder-gray-500 text-sm"
                   required
                 />
-                {errors.company_name && (
-                  <p className="text-sm text-red-500 mt-1 font-figtree">{errors.company_name.message}</p>
+                {errors.organization_name && (
+                  <p className="text-sm text-red-500 mt-1 font-figtree">{errors.organization_name.message}</p>
                 )}
               </div>
 
@@ -252,7 +330,7 @@ export default function SignUpPage() {
               </div>
 
               {/* HR Email Field */}
-              <div>
+              <div className="mb-4">
                 <label htmlFor="hr_email" className="block text-sm font-medium text-gray-700 mb-2 font-figtree">
                   HR Email <span className="text-red-500">*</span>
                 </label>
@@ -269,6 +347,27 @@ export default function SignUpPage() {
                 )}
                 <p className="text-xs text-gray-500 mt-1 font-figtree">
                   This will be used for receiving job applications and notifications
+                </p>
+              </div>
+
+              {/* Hiring Manager Email Field */}
+              <div>
+                <label htmlFor="hiring_manager_email" className="block text-sm font-medium text-gray-700 mb-2 font-figtree">
+                  Hiring Manager Email <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="email"
+                  id="hiring_manager_email"
+                  placeholder="hiring.manager@example.com"
+                  {...register('hiring_manager_email')}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all font-figtree bg-white text-gray-900 placeholder-gray-500 text-sm"
+                  required
+                />
+                {errors.hiring_manager_email && (
+                  <p className="text-sm text-red-500 mt-1 font-figtree">{errors.hiring_manager_email.message}</p>
+                )}
+                <p className="text-xs text-gray-500 mt-1 font-figtree">
+                  Email address of the hiring manager
                 </p>
               </div>
             </div>

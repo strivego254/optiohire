@@ -9,40 +9,107 @@ const SALT_ROUNDS = 10
 export async function signup(req: Request, res: Response) {
   const client = await pool.connect()
   try {
-    const { email, password, company_name, company_email, hr_email } = req.body || {}
+    const { username, name, email, password, company_role, company_name, company_email, hr_email, hiring_manager_email } = req.body || {}
     
-    // Validate required fields
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required' })
+    // STRICT: Validate all required fields - ALL MANDATORY
+    if (!username || !name || !email || !password) {
+      return res.status(400).json({ error: 'Username, name, email, and password are required' })
     }
-    if (!company_name || !company_email || !hr_email) {
-      return res.status(400).json({ error: 'Company name, company email, and HR email are required' })
+    if (!company_role || !company_name || !company_email || !hr_email || !hiring_manager_email) {
+      return res.status(400).json({ error: 'Company role, organization name, company email, HR email, and hiring manager email are all required' })
+    }
+    
+    // Validate username format
+    const usernameRegex = /^[a-zA-Z0-9_]+$/
+    if (!usernameRegex.test(username) || username.length < 3 || username.length > 50) {
+      return res.status(400).json({ error: 'Username must be 3-50 characters and contain only letters, numbers, and underscores' })
+    }
+    
+    // Validate company_role
+    if (company_role !== 'hr' && company_role !== 'hiring_manager') {
+      return res.status(400).json({ error: 'Company role must be either "hr" or "hiring_manager"' })
     }
 
     // Validate email formats
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(email) || !emailRegex.test(company_email) || !emailRegex.test(hr_email)) {
+    if (!emailRegex.test(email) || !emailRegex.test(company_email) || !emailRegex.test(hr_email) || !emailRegex.test(hiring_manager_email)) {
       return res.status(400).json({ error: 'All email addresses must be valid' })
     }
 
-    // Check if user already exists
+    // Check if username already exists
+    const { rows: existingUsername } = await query<{ user_id: string }>(
+      `SELECT user_id FROM users WHERE username = $1`,
+      [username.toLowerCase()]
+    )
+    if (existingUsername.length > 0) {
+      return res.status(409).json({ error: 'Username already taken' })
+    }
+
+    // Check if email already exists
     const { rows: existing } = await query<{ user_id: string }>(
       `select user_id from users where email = $1`,
       [email.toLowerCase()]
     )
     if (existing.length > 0) {
-      return res.status(409).json({ error: 'Account already exists' })
+      return res.status(409).json({ error: 'Account with this email already exists' })
     }
 
     // Start transaction
     await client.query('BEGIN')
 
     try {
-      // Create user
+      // Create user with username, name, and company_role
       const hash = await bcrypt.hash(password, SALT_ROUNDS)
+      
+      // Check which columns exist
+      const { rows: colCheck } = await client.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'users' 
+        AND column_name IN ('username', 'name', 'company_role')
+      `)
+      
+      const hasUsernameColumn = colCheck.some((r: any) => r.column_name === 'username')
+      const hasNameColumn = colCheck.some((r: any) => r.column_name === 'name')
+      const hasCompanyRoleColumn = colCheck.some((r: any) => r.column_name === 'company_role')
+      
+      // Build dynamic insert query based on available columns
+      const columns: string[] = []
+      const values: string[] = []
+      const params: any[] = []
+      let paramIndex = 1
+      
+      if (hasUsernameColumn) {
+        columns.push('username')
+        values.push(`$${paramIndex++}`)
+        params.push(username.toLowerCase().trim())
+      }
+      if (hasNameColumn) {
+        columns.push('name')
+        values.push(`$${paramIndex++}`)
+        params.push(name.trim())
+      }
+      columns.push('email')
+      values.push(`$${paramIndex++}`)
+      params.push(email.toLowerCase())
+      columns.push('password_hash')
+      values.push(`$${paramIndex++}`)
+      params.push(hash)
+      columns.push('role')
+      values.push(`'user'`)
+      if (hasCompanyRoleColumn) {
+        columns.push('company_role')
+        values.push(`$${paramIndex++}`)
+        params.push(company_role)
+      }
+      columns.push('is_active')
+      values.push('true')
+      
+      const insertQuery = `INSERT INTO users (${columns.join(', ')}) VALUES (${values.join(', ')}) RETURNING user_id, created_at`
+      
       const { rows } = await client.query<{ user_id: string; created_at: string }>(
-        `insert into users (email, password_hash, role, is_active) values ($1, $2, 'user', true) returning user_id, created_at`,
-        [email.toLowerCase(), hash]
+        insertQuery,
+        params
       )
       const userId = rows[0].user_id
 
@@ -63,7 +130,7 @@ export async function signup(req: Request, res: Response) {
         hasUserIdColumn = false
       }
 
-      // Create company with user_id if column exists
+      // Create company with user_id if column exists - STRICT: hiring_manager_email is required
       let companyResult
       if (hasUserIdColumn) {
         companyResult = await client.query<{ company_id: string }>(
@@ -74,7 +141,7 @@ export async function signup(req: Request, res: Response) {
             userId,
             company_name,
             hr_email,
-            hr_email, // Use hr_email as hiring_manager_email if not provided
+            hiring_manager_email, // Use provided hiring_manager_email
             companyDomain,
             company_email
           ]
@@ -87,7 +154,7 @@ export async function signup(req: Request, res: Response) {
           [
             company_name,
             hr_email,
-            hr_email, // Use hr_email as hiring_manager_email if not provided
+            hiring_manager_email, // Use provided hiring_manager_email
             companyDomain,
             company_email
           ]
@@ -103,17 +170,25 @@ export async function signup(req: Request, res: Response) {
         user: { 
           user_id: userId, 
           id: userId, // Also include as 'id' for frontend compatibility
+          username: username.toLowerCase().trim(),
+          name: name.trim(),
           email: email.toLowerCase(),
           role: 'user',
+          company_role: company_role,
           created_at: rows[0].created_at,
           hasCompany: true, // Always true on signup as company is created
-          companyId: companyResult.rows[0].company_id
+          companyId: companyResult.rows[0].company_id,
+          companyName: company_name,
+          companyEmail: company_email,
+          hrEmail: hr_email,
+          hiringManagerEmail: hiring_manager_email
         },
         company: {
           company_id: companyResult.rows[0].company_id,
           company_name,
           company_email,
-          hr_email
+          hr_email,
+          hiring_manager_email
         }
       })
     } catch (err) {

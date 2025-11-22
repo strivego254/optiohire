@@ -53,7 +53,8 @@ export function ScheduleInterviewModal({
       const date = new Date(interviewTime)
       const isoString = date.toISOString()
 
-      const response = await fetch('/api/hr/schedule-interview', {
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'
+      const response = await fetch(`${backendUrl}/api/schedule-interview`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

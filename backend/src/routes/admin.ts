@@ -2,6 +2,8 @@ import { Router } from 'express'
 import { authenticate, requireAdmin } from '../middleware/auth.js'
 import {
   getAllUsers,
+  getUserById,
+  getUserStats,
   updateUser,
   deleteUser,
   getAllCompanies,
@@ -26,6 +28,8 @@ router.get('/stats', getSystemStats)
 
 // Users Management
 router.get('/users', getAllUsers)
+router.get('/users/:userId', getUserById)
+router.get('/users/:userId/stats', getUserStats)
 router.patch('/users/:userId', updateUser)
 router.delete('/users/:userId', deleteUser)
 

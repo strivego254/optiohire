@@ -18,9 +18,11 @@ export interface JobPosting {
   job_description: string
   required_skills: string[]
   interview_meeting_link: string | null
+  interview_start_time: string | null
   application_deadline: string | null
   status: 'active' | 'paused' | 'closed'
   n8n_webhook_sent: boolean
+  google_calendar_link?: string | null
 }
 
 export interface Applicant {

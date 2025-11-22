@@ -197,14 +197,14 @@ export function OptimizedDashboardLayout() {
         />
       </div>
       
-      <main className="flex-1 overflow-auto bg-white dark:bg-black w-full lg:w-auto">
+      <main className="flex-1 overflow-auto bg-gray-50 dark:bg-gray-950 w-full lg:w-auto">
         {/* Top Header with Theme Toggle */}
-        <div className="sticky top-0 z-10 bg-white/80 dark:bg-black/80 backdrop-blur-sm border-b border-border">
-          <div className="flex items-center justify-between p-3 sm:p-4 md:p-6">
+        <div className="sticky top-0 z-10 bg-white/95 dark:bg-gray-950/95 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 shadow-sm">
+          <div className="flex items-center justify-between p-4 md:p-6">
             <div className="lg:hidden">
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="p-2 rounded-lg bg-[#2D2DDD] text-white"
+                className="p-2 rounded-lg bg-[#2D2DDD] text-white hover:bg-[#2D2DDD]/90 transition-colors"
                 aria-label="Menu"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -212,7 +212,9 @@ export function OptimizedDashboardLayout() {
                 </svg>
               </button>
             </div>
-            <ToggleTheme />
+            <div className="flex items-center gap-4">
+              <ToggleTheme />
+            </div>
           </div>
         </div>
         <div className="p-3 sm:p-4 md:p-6 lg:p-8">

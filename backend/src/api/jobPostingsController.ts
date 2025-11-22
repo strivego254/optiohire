@@ -72,17 +72,22 @@ export async function getJobPostings(req: Request, res: Response) {
 
     if (!companyId) {
       // Fallback: get user email and find company by email
-      const { rows: userRows } = await query<{ email: string }>(
-        `SELECT email FROM users WHERE user_id = $1`,
+      const { rows: userRows } = await query<{ email: string; role: string }>(
+        `SELECT email, role FROM users WHERE user_id = $1`,
         [userId]
       )
       if (userRows.length > 0) {
-        const { rows: companyRows } = await query<{ company_id: string }>(
-          `SELECT company_id FROM companies WHERE hr_email = $1 OR company_email = $1 LIMIT 1`,
-          [userRows[0].email]
-        )
-        if (companyRows.length > 0) {
-          companyId = companyRows[0].company_id
+        // If admin, allow access to all jobs
+        if (userRows[0].role === 'admin') {
+          companyId = null // Will show all jobs
+        } else {
+          const { rows: companyRows } = await query<{ company_id: string }>(
+            `SELECT company_id FROM companies WHERE hr_email = $1 OR company_email = $1 LIMIT 1`,
+            [userRows[0].email]
+          )
+          if (companyRows.length > 0) {
+            companyId = companyRows[0].company_id
+          }
         }
       }
     }
@@ -94,12 +99,17 @@ export async function getJobPostings(req: Request, res: Response) {
       companyIds.push(companyId)
     }
     
-    // Also find "strive" company if it exists
-    const { rows: striveCompany } = await query<{ company_id: string }>(
-      `SELECT company_id FROM companies WHERE LOWER(company_name) LIKE '%strive%' LIMIT 1`
-    )
-    if (striveCompany.length > 0 && !companyIds.includes(striveCompany[0].company_id)) {
-      companyIds.push(striveCompany[0].company_id)
+    // Also find "strive" company if it exists (for demo/testing)
+    try {
+      const { rows: striveCompany } = await query<{ company_id: string }>(
+        `SELECT company_id FROM companies WHERE LOWER(company_name) LIKE '%strive%' LIMIT 1`
+      )
+      if (striveCompany.length > 0 && !companyIds.includes(striveCompany[0].company_id)) {
+        companyIds.push(striveCompany[0].company_id)
+      }
+    } catch (err) {
+      // Ignore strive company lookup errors
+      console.log('Could not find strive company:', err)
     }
 
     // Get all job postings - show all jobs if no specific company filter
@@ -112,9 +122,12 @@ export async function getJobPostings(req: Request, res: Response) {
       responsibilities: string
       skills_required: string[]
       application_deadline: string | null
+      interview_start_time: string | null
       status: string
       created_at: string
       updated_at: string
+      meeting_link: string | null
+      interview_meeting_link: string | null
     }>(
       companyIds.length > 0
         ? `SELECT 
@@ -125,9 +138,12 @@ export async function getJobPostings(req: Request, res: Response) {
             responsibilities,
             skills_required,
             application_deadline,
+            interview_start_time,
             status,
             created_at,
-            updated_at
+            updated_at,
+            meeting_link,
+            interview_meeting_link
           FROM job_postings
           WHERE company_id = ANY($1)
           ORDER BY created_at DESC`
@@ -139,9 +155,12 @@ export async function getJobPostings(req: Request, res: Response) {
             responsibilities,
             skills_required,
             application_deadline,
+            interview_start_time,
             status,
             created_at,
-            updated_at
+            updated_at,
+            meeting_link,
+            interview_meeting_link
           FROM job_postings
           ORDER BY created_at DESC`,
       companyIds.length > 0 ? [companyIds] : []
@@ -150,29 +169,52 @@ export async function getJobPostings(req: Request, res: Response) {
     // Get applicant counts for each job
     const jobsWithStats = await Promise.all(
       jobs.map(async (job) => {
-        const { rows: stats } = await query<{
-          total: string
-          shortlisted: string
-          rejected: string
-          flagged: string
-        }>(
-          `SELECT 
-            COUNT(*) as total,
-            COUNT(*) FILTER (WHERE ai_status = 'SHORTLIST') as shortlisted,
-            COUNT(*) FILTER (WHERE ai_status = 'REJECT') as rejected,
-            COUNT(*) FILTER (WHERE ai_status = 'FLAG') as flagged
-          FROM applications
-          WHERE job_posting_id = $1`,
-          [job.job_posting_id]
-        )
+        try {
+          const { rows: stats } = await query<{
+            total: string
+            shortlisted: string
+            rejected: string
+            flagged: string
+          }>(
+            `SELECT 
+              COUNT(*) as total,
+              COUNT(*) FILTER (WHERE ai_status = 'SHORTLIST') as shortlisted,
+              COUNT(*) FILTER (WHERE ai_status = 'REJECT') as rejected,
+              COUNT(*) FILTER (WHERE ai_status = 'FLAG') as flagged
+            FROM applications
+            WHERE job_posting_id = $1`,
+            [job.job_posting_id]
+          )
 
-        return {
-          ...job,
-          id: job.job_posting_id,
-          applicant_count: Number(stats[0]?.total || 0),
-          shortlisted_count: Number(stats[0]?.shortlisted || 0),
-          rejected_count: Number(stats[0]?.rejected || 0),
-          flagged_count: Number(stats[0]?.flagged || 0),
+          return {
+            ...job,
+            id: job.job_posting_id,
+            job_posting_id: job.job_posting_id,
+            required_skills: Array.isArray(job.skills_required) ? job.skills_required : (job.skills_required ? [job.skills_required] : []),
+            meeting_link: job.meeting_link || job.interview_meeting_link || null,
+            interview_meeting_link: job.interview_meeting_link || job.meeting_link || null,
+            interview_start_time: job.interview_start_time || null,
+            applicant_count: Number(stats[0]?.total || 0),
+            shortlisted_count: Number(stats[0]?.shortlisted || 0),
+            rejected_count: Number(stats[0]?.rejected || 0),
+            flagged_count: Number(stats[0]?.flagged || 0),
+          }
+        } catch (statErr) {
+          // If stats query fails, return job without stats
+          console.error('Error fetching stats for job:', job.job_posting_id, statErr)
+          return {
+            ...job,
+            id: job.job_posting_id,
+            job_posting_id: job.job_posting_id,
+            required_skills: Array.isArray(job.skills_required) ? job.skills_required : (job.skills_required ? [job.skills_required] : []),
+            meeting_link: job.meeting_link || job.interview_meeting_link || null,
+            interview_meeting_link: job.interview_meeting_link || job.meeting_link || null,
+            interview_start_time: job.interview_start_time || null,
+            applicant_count: 0,
+            shortlisted_count: 0,
+            rejected_count: 0,
+            flagged_count: 0,
+          }
         }
       })
     )
@@ -180,7 +222,8 @@ export async function getJobPostings(req: Request, res: Response) {
     return res.json({ jobs: jobsWithStats })
   } catch (err) {
     console.error('Error fetching job postings:', err)
-    return res.status(500).json({ error: 'Failed to fetch job postings' })
+    // Return empty array instead of error to prevent frontend crashes
+    return res.json({ jobs: [] })
   }
 }
 

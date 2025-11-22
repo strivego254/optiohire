@@ -15,7 +15,8 @@ import {
   UserCheck,
   UserX,
   AlertTriangle,
-  ChevronDown
+  ChevronDown,
+  Plus
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import type { Database } from '@/lib/supabase'
@@ -24,6 +25,7 @@ import { useAnalyticsRealtime, useJobsRealtime } from '@/hooks/use-realtime-data
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { useRouter } from 'next/navigation'
 import {
   ApplicantMetricsSlice,
   EMPTY_APPLICANT_METRICS,
@@ -94,6 +96,7 @@ const fetchApplicantsAggregateForJobs = async (jobIds: string[]) => {
 
 export function OverviewSection() {
   const { user } = useAuth()
+  const router = useRouter()
   const [metrics, setMetrics] = useState<DashboardMetrics>({
     activeJobs: 0,
     totalJobs: 0,
@@ -139,20 +142,34 @@ export function OverviewSection() {
       setIsLoading(true)
       setError(null)
       
-      // Skip Supabase calls if it's a stub (returns empty data immediately)
-      // Use backend API instead
+      // Fetch jobs from backend API
       const token = localStorage.getItem('token')
       if (!token) {
         setIsLoading(false)
         return
       }
 
-      // For now, skip fetching jobs if no endpoint exists
-      // This will make the dashboard load instantly
-      const jobs: any[] = []
-      
-      // TODO: Add GET /job-postings endpoint to backend if needed
-      // For now, dashboard will show empty state which loads instantly
+      // Fetch jobs from backend API
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'
+      const response = await fetch(`${backendUrl}/api/job-postings`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      let jobs: any[] = []
+      if (response.ok) {
+        const data = await response.json()
+        jobs = data.jobs || []
+      } else if (response.status === 404) {
+        // No company found or no jobs - this is okay, just show empty state
+        jobs = []
+      } else {
+        console.error('Failed to fetch jobs:', response.status, await response.text().catch(() => ''))
+        // Continue with empty array rather than showing error
+        jobs = []
+      }
       
       // Normalize jobs data - handle both backend format and Supabase format
       const normalizedJobs: JobPosting[] = (jobs ?? [])
@@ -177,17 +194,32 @@ export function OverviewSection() {
       const activeJobs = normalizedJobs.filter(job => job.status === 'active' || job.status === 'ACTIVE').length
       const totalJobs = normalizedJobs.length
       
-      // Set basic metrics immediately
+      // Calculate applicant metrics from jobs data
+      let totalApplicants = 0
+      let shortlistedApplicants = 0
+      let flaggedApplicants = 0
+      let rejectedApplicants = 0
+      
+      jobs.forEach((job: any) => {
+        totalApplicants += job.applicant_count || 0
+        shortlistedApplicants += job.shortlisted_count || 0
+        flaggedApplicants += job.flagged_count || 0
+        rejectedApplicants += job.rejected_count || 0
+      })
+      
+      // Set metrics with actual data
       setMetrics({
         activeJobs,
         totalJobs,
         totalReports: 0,
         readyReports: 0,
-        ...EMPTY_APPLICANT_METRICS,
+        totalApplicants,
+        shortlistedApplicants,
+        flaggedApplicants,
+        rejectedApplicants,
       })
 
-      // Skip analytics loading if no jobs or if Supabase is stub
-      // Analytics can be loaded later if needed
+      // Skip analytics loading if no jobs
       setIsLoadingAnalytics(false)
     } catch (err) {
       console.error('Error loading dashboard metrics:', err)
@@ -273,29 +305,35 @@ export function OverviewSection() {
         transition={{ type: 'tween', duration: 0.4, ease: 'easeOut' }}
         className="gpu-accelerated"
       >
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 sm:gap-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 sm:gap-6">
           {/* Welcome Section */}
           <div className="flex-1 min-w-0">
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-figtree font-extralight mb-2 text-[#2D2DDD] dark:text-white">
-              Welcome back!
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-semibold mb-2 text-gray-900 dark:text-white">
+              Dashboard Overview
             </h1>
-            <p className="text-sm sm:text-base md:text-lg font-figtree font-light text-gray-600 dark:text-gray-300">
-              Here's what's happening with your recruitment process
+            <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">
+              Monitor your recruitment pipeline and track key metrics
             </p>
           </div>
           
-          {/* Job Selector Button */}
-          <div className="flex-shrink-0 flex flex-col items-end sm:items-start gap-2">
-            <h2 className="text-sm sm:text-base font-figtree font-light text-gray-900 dark:text-white">
-              Select Job Post To View Its Analytics
-            </h2>
+          {/* Action Buttons */}
+          <div className="flex flex-col sm:flex-row gap-3 flex-shrink-0">
+            <Button
+              onClick={() => router.push('/dashboard/jobs')}
+              className="bg-[#2D2DDD] hover:bg-[#2D2DDD]/90 text-white shadow-md hover:shadow-lg transition-all"
+            >
+              <Briefcase className="w-4 h-4 mr-2" />
+              Post New Job
+            </Button>
+            {/* Job Selector Button */}
+            <div>
             <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
               <PopoverTrigger asChild>
                 <Button
                   type="button"
                   variant="outline"
                   disabled={isLoading || jobPostings.length === 0}
-                  className="h-9 min-w-[180px] max-w-[250px] border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                  className="h-10 min-w-[200px] max-w-[280px] border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md transition-shadow"
                 >
                   <Briefcase className="w-4 h-4 mr-2 flex-shrink-0" />
                   <span className="max-w-[150px] truncate text-sm font-figtree font-medium">
@@ -352,7 +390,8 @@ export function OverviewSection() {
                   </div>
                 </PopoverContent>
               )}
-            </Popover>
+              </Popover>
+            </div>
           </div>
         </div>
       </motion.div>
@@ -497,40 +536,77 @@ export function OverviewSection() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <Card className="hover:shadow-lg transition-all duration-300 cursor-pointer group bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                <CardContent className="p-4 text-center">
-                  <div className="w-12 h-12 rounded-lg bg-gradient-to-r from-[#2D2DDD] to-[#2D2DDD]/80 flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
-                    <Briefcase className="w-6 h-6 text-white" />
-                  </div>
-                  <h3 className="text-sm font-figtree font-medium mb-1 text-gray-900 dark:text-white">Manage Jobs</h3>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 font-figtree font-light">
-                    View and edit job postings
-                  </p>
-                </CardContent>
-              </Card>
-              <Card className="hover:shadow-lg transition-all duration-300 cursor-pointer group bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                <CardContent className="p-4 text-center">
-                  <div className="w-12 h-12 rounded-lg bg-gradient-to-r from-[#2D2DDD] to-[#2D2DDD]/80 flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
-                    <BarChart3 className="w-6 h-6 text-white" />
-                  </div>
-                  <h3 className="text-sm font-figtree font-medium mb-1 text-gray-900 dark:text-white">View Reports</h3>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 font-figtree font-light">
-                    Download analytics
-                  </p>
-                </CardContent>
-              </Card>
-              <Card className="hover:shadow-lg transition-all duration-300 cursor-pointer group bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 col-span-2 sm:col-span-1">
-                <CardContent className="p-4 text-center">
-                  <div className="w-12 h-12 rounded-lg bg-gradient-to-r from-[#2D2DDD] to-[#2D2DDD]/80 flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
-                    <TrendingUp className="w-6 h-6 text-white" />
-                  </div>
-                  <h3 className="text-sm font-figtree font-medium mb-1 text-gray-900 dark:text-white">Create Job</h3>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 font-figtree font-light">
-                    Post new positions
-                  </p>
-                </CardContent>
-              </Card>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <button
+                onClick={() => router.push('/dashboard/jobs')}
+                className="group"
+              >
+                <Card className="hover:shadow-xl transition-all duration-300 cursor-pointer h-full bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 hover:border-[#2D2DDD] dark:hover:border-[#2D2DDD]">
+                  <CardContent className="p-6 text-center">
+                    <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-[#2D2DDD] to-[#2D2DDD]/70 flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform shadow-lg">
+                      <Briefcase className="w-8 h-8 text-white" />
+                    </div>
+                    <h3 className="text-base font-semibold mb-2 text-gray-900 dark:text-white">Manage Jobs</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      View and edit job postings
+                    </p>
+                  </CardContent>
+                </Card>
+              </button>
+              <button
+                onClick={() => {
+                  if (jobPostings.length > 0) {
+                    router.push(`/dashboard/job/${jobPostings[0].id}/shortlisted`)
+                  } else {
+                    router.push('/dashboard/jobs')
+                  }
+                }}
+                className="group"
+              >
+                <Card className="hover:shadow-xl transition-all duration-300 cursor-pointer h-full bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 hover:border-[#2D2DDD] dark:hover:border-[#2D2DDD]">
+                  <CardContent className="p-6 text-center">
+                    <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform shadow-lg">
+                      <Users className="w-8 h-8 text-white" />
+                    </div>
+                    <h3 className="text-base font-semibold mb-2 text-gray-900 dark:text-white">View Candidates</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Manage applicants and candidates
+                    </p>
+                  </CardContent>
+                </Card>
+              </button>
+              <button
+                onClick={() => router.push('/dashboard/reports')}
+                className="group"
+              >
+                <Card className="hover:shadow-xl transition-all duration-300 cursor-pointer h-full bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 hover:border-[#2D2DDD] dark:hover:border-[#2D2DDD]">
+                  <CardContent className="p-6 text-center">
+                    <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform shadow-lg">
+                      <BarChart3 className="w-8 h-8 text-white" />
+                    </div>
+                    <h3 className="text-base font-semibold mb-2 text-gray-900 dark:text-white">View Reports</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Analytics and insights
+                    </p>
+                  </CardContent>
+                </Card>
+              </button>
+              <button
+                onClick={() => router.push('/dashboard/jobs')}
+                className="group"
+              >
+                <Card className="hover:shadow-xl transition-all duration-300 cursor-pointer h-full bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 hover:border-[#2D2DDD] dark:hover:border-[#2D2DDD]">
+                  <CardContent className="p-6 text-center">
+                    <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform shadow-lg">
+                      <Plus className="w-8 h-8 text-white" />
+                    </div>
+                    <h3 className="text-base font-semibold mb-2 text-gray-900 dark:text-white">Post New Job</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Create new positions
+                    </p>
+                  </CardContent>
+                </Card>
+              </button>
             </div>
           </CardContent>
         </Card>
