@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect, useRef } from 'react'
 import VideoPlayerPro from './video-player-pro'
 
 interface VideoSectionProps {
@@ -9,12 +10,102 @@ interface VideoSectionProps {
   description?: string
 }
 
+interface CounterItem {
+  number: string
+  text: string
+  numericValue: number
+  suffix: string
+}
+
 export default function VideoSection({
   videoSrc = '/assets/videos/demo-video.mp4',
   poster,
   title = "See It in Action",
   description = "Watch how our AI-powered platform transforms your hiring process"
 }: VideoSectionProps) {
+  const microContentRef = useRef<HTMLDivElement>(null)
+  const [hasAnimated, setHasAnimated] = useState(false)
+  const [counters, setCounters] = useState<CounterItem[]>([
+    { number: "0%", text: "AI Accuracy", numericValue: 95, suffix: "%" },
+    { number: "0x", text: "Faster Hiring", numericValue: 5, suffix: "x" },
+    { number: "0%", text: "Cost Reduction", numericValue: 70, suffix: "%" }
+  ])
+
+  useEffect(() => {
+    if (!microContentRef.current || hasAnimated) return
+
+    const counterData: CounterItem[] = [
+      { number: "0%", text: "AI Accuracy", numericValue: 95, suffix: "%" },
+      { number: "0x", text: "Faster Hiring", numericValue: 5, suffix: "x" },
+      { number: "0%", text: "Cost Reduction", numericValue: 70, suffix: "%" }
+    ]
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && !hasAnimated) {
+            setHasAnimated(true)
+            
+            // Animate each counter
+            counterData.forEach((item, index) => {
+              const duration = 2000 // 2 seconds
+              const startTime = Date.now()
+              const startValue = 0
+              const endValue = item.numericValue
+              const suffix = item.suffix
+
+              const animate = () => {
+                const elapsed = Date.now() - startTime
+                const progress = Math.min(elapsed / duration, 1)
+                
+                // Easing function (ease-out)
+                const easeOut = 1 - Math.pow(1 - progress, 3)
+                const currentValue = Math.floor(startValue + (endValue - startValue) * easeOut)
+
+                setCounters((prev) => {
+                  const updated = [...prev]
+                  updated[index] = {
+                    ...updated[index],
+                    number: `${currentValue}${suffix}`
+                  }
+                  return updated
+                })
+
+                if (progress < 1) {
+                  requestAnimationFrame(animate)
+                } else {
+                  // Ensure final value is set
+                  setCounters((prev) => {
+                    const updated = [...prev]
+                    updated[index] = {
+                      ...updated[index],
+                      number: `${endValue}${suffix}`
+                    }
+                    return updated
+                  })
+                }
+              }
+
+              // Stagger the animations slightly
+              setTimeout(() => {
+                requestAnimationFrame(animate)
+              }, index * 100)
+            })
+          }
+        })
+      },
+      {
+        threshold: 0.3, // Trigger when 30% of the element is visible
+        rootMargin: '0px'
+      }
+    )
+
+    observer.observe(microContentRef.current)
+
+    return () => {
+      observer.disconnect()
+    }
+  }, [hasAnimated])
 
   return (
     <section className="relative w-full bg-black pt-2 sm:pt-4 md:pt-12 pb-20 px-4 md:pb-24">
@@ -84,6 +175,22 @@ export default function VideoSection({
                 </div>
               )}
             </div>
+          </div>
+        </div>
+
+        {/* Micro Content Below Video */}
+        <div ref={microContentRef} className="mt-24 md:mt-32 lg:mt-40">
+          <div className="flex flex-wrap items-center justify-center gap-16 md:gap-20 lg:gap-24 xl:gap-32">
+            {counters.map((item, index) => (
+              <div key={index} className="flex flex-col items-center text-center">
+                <div className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extralight tracking-tight text-white mb-2">
+                  {item.number}
+                </div>
+                <div className="text-xs sm:text-sm md:text-base font-light tracking-tight text-white/70">
+                  {item.text}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>

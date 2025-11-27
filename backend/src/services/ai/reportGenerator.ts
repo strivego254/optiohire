@@ -1,4 +1,5 @@
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import Groq from 'groq-sdk'
+import { logger } from '../../utils/logger.js'
 
 export interface ApplicantData {
   id: string
@@ -43,14 +44,10 @@ export interface ReportAnalysis {
 }
 
 /**
- * Get Gemini API key with rotation/fallback support
- * Tries: GEMINI_API_KEY -> GEMINI_API_KEY_002 -> GEMINI_API_KEY_003
+ * Get Groq API key
  */
-function getGeminiApiKey(): string | null {
-  return process.env.GEMINI_API_KEY 
-    || process.env.GEMINI_API_KEY_002 
-    || process.env.GEMINI_API_KEY_003 
-    || null
+function getGroqApiKey(): string | null {
+  return process.env.GROQ_API_KEY || null
 }
 
 export async function generateReportAnalysis(
@@ -58,11 +55,8 @@ export async function generateReportAnalysis(
   company: CompanyData,
   applicants: ApplicantData[]
 ): Promise<ReportAnalysis> {
-  const geminiKey = getGeminiApiKey()
-  const model = process.env.REPORT_AI_MODEL || 'gemini-1.5-flash'
-
-  if (geminiKey) {
-    const genAI = new GoogleGenerativeAI(geminiKey)
+  const model = process.env.REPORT_AI_MODEL || 'llama-3.3-70b-versatile'
+  const groqKey = getGroqApiKey()
 
   const shortlisted = applicants.filter(a => a.ai_status === 'SHORTLIST')
   const flagged = applicants.filter(a => a.ai_status === 'FLAG')
@@ -122,37 +116,43 @@ Generate a JSON response with this exact structure:
 
 Return ONLY valid JSON, no markdown formatting.`
 
+  // Use Groq for report generation
+  if (groqKey) {
     try {
-      const geminiModel = genAI.getGenerativeModel({ 
-        model: model.includes('gemini') ? model : 'gemini-1.5-flash' 
+      logger.info(`Using Groq model: ${model} for report generation`)
+      const groq = new Groq({ apiKey: groqKey })
+      
+      const systemMessage = 'You are an expert HR analyst. Always return valid JSON only, no markdown or code blocks.'
+      
+      const completion = await groq.chat.completions.create({
+        messages: [
+          { role: 'system', content: systemMessage },
+          { role: 'user', content: prompt }
+        ],
+        model: model,
+        temperature: 0.7,
+        response_format: { type: 'json_object' }
       })
       
-      const systemInstruction = 'You are an expert HR analyst. Always return valid JSON only, no markdown or code blocks.'
-      const fullPrompt = `${systemInstruction}\n\n${prompt}`
-      
-      const result = await geminiModel.generateContent(fullPrompt)
-      const response = await result.response
-      const content = response.text() || '{}'
-      
-      // Extract JSON from response (Gemini might wrap it in markdown)
-      const jsonMatch = content.match(/\{[\s\S]*\}/)
-      const jsonContent = jsonMatch ? jsonMatch[0] : content
-      const parsed = JSON.parse(jsonContent) as ReportAnalysis
+      const content = completion.choices[0]?.message?.content || '{}'
+      const parsed = JSON.parse(content) as ReportAnalysis
       
       // Ensure top3Candidates is limited to 3
       if (parsed.top3Candidates && parsed.top3Candidates.length > 3) {
         parsed.top3Candidates = parsed.top3Candidates.slice(0, 3)
       }
 
+      logger.info('Groq report generation successful')
       return parsed
-    } catch (error) {
-      console.error('AI report generation failed, using fallback:', error)
+    } catch (error: any) {
+      logger.error(`Groq report generation failed: ${error.message}, using fallback`)
       return generateBasicAnalysis(job, applicants)
     }
-  } else {
-    // Fallback to basic analysis without AI
-    return generateBasicAnalysis(job, applicants)
   }
+
+  // Fallback to basic analysis without AI
+  logger.warn('No Groq API key available, using basic analysis')
+  return generateBasicAnalysis(job, applicants)
 }
 
 function extractSkills(parsedResume: any): string[] {

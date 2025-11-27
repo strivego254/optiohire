@@ -7,19 +7,37 @@ let poolInstance: pg.Pool | null = null
 
 function getPool() {
   if (!connectionString) {
+    console.error('DATABASE_URL is not set. Available env vars:', Object.keys(process.env).filter(k => k.includes('DATABASE')))
     throw new Error('DATABASE_URL is not set')
   }
   
   if (!poolInstance) {
-    poolInstance = new Pool({
-      connectionString,
-      // Supabase requires SSL by default
-      ssl: process.env.DB_SSL === 'false' ? undefined : { rejectUnauthorized: false },
-      // Connection pool settings optimized for Supabase
-      max: 20,
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 10000,
-    })
+    try {
+      poolInstance = new Pool({
+        connectionString,
+        // Supabase requires SSL by default
+        ssl: process.env.DB_SSL === 'false' ? undefined : { rejectUnauthorized: false },
+        // Connection pool settings optimized for Supabase
+        max: 20,
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 15000,
+        // Additional options for better connectivity
+        keepAlive: true,
+        keepAliveInitialDelayMillis: 10000,
+      })
+      
+      // Test connection on pool creation
+      poolInstance.on('error', (err) => {
+        console.error('Unexpected database pool error:', err)
+      })
+      
+      poolInstance.on('connect', () => {
+        console.log('Database pool connection established')
+      })
+    } catch (err) {
+      console.error('Failed to create database pool:', err)
+      throw err
+    }
   }
   
   return poolInstance

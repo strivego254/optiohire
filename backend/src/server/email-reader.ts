@@ -1,5 +1,6 @@
 import { ImapFlow } from 'imapflow'
 import { simpleParser } from 'mailparser'
+import { query } from '../db/index.js'
 import { JobPostingRepository } from '../repositories/jobPostingRepository.js'
 import { CompanyRepository } from '../repositories/companyRepository.js'
 import { ApplicationRepository } from '../repositories/applicationRepository.js'
@@ -143,36 +144,39 @@ export class EmailReader {
             if (message.source && message.envelope) {
               const subject = message.envelope.subject || ''
               
-              // Only process emails with subject starting with "Application for"
-              if (subject.toLowerCase().startsWith('application for')) {
+              // Check if email subject matches any active job posting title exactly
+              const matchingJob = await this.findJobByExactSubject(subject)
+              
+              if (matchingJob) {
+                logger.info(`Email subject matches job posting: "${subject}" -> Job: ${matchingJob.job_title} (ID: ${matchingJob.job_posting_id})`)
                 try {
-                  await this.processEmail(message.source, message.envelope)
+                  // Process email and check if CV was extracted
+                  const cvExtracted = await this.processEmailForJob(message.source, message.envelope, seq, matchingJob)
                   
-                  // Mark as seen
-                  await this.client.messageFlagsAdd(seq, ['\\Seen'])
-                  
-                  // Move to Processed folder
-                  await this.moveToFolder(seq, 'Processed')
-                  
-                  logger.info(`Successfully processed email: ${subject}`)
+                  // Only mark as read if CV was successfully extracted
+                  if (cvExtracted) {
+                    await this.client.messageFlagsAdd(seq, ['\\Seen'])
+                    await this.moveToFolder(seq, 'Processed')
+                    logger.info(`Successfully processed email (CV extracted): ${subject}`)
+                  } else {
+                    // Keep unread if no CV was found or extraction failed
+                    logger.warn(`Email processed but CV not extracted - keeping unread: ${subject}`)
+                    await this.moveToFolder(seq, 'Failed')
+                  }
                 } catch (error) {
                   logger.error(`Error processing email ${seq}:`, error)
                   
-                  // Mark as seen
-                  await this.client.messageFlagsAdd(seq, ['\\Seen'])
-                  
-                  // Move to Failed folder if parser fails
+                  // Keep unread on error - don't mark as seen
                   await this.moveToFolder(seq, 'Failed')
                 }
               } else {
-                logger.debug(`Skipping email (subject doesn't match): ${subject}`)
+                logger.debug(`Skipping email (subject doesn't match any job posting): ${subject}`)
               }
             }
           } catch (error) {
             logger.error(`Error processing email ${seq}:`, error)
-            // Try to move to Failed folder
+            // Keep email unread on error - don't mark as seen
             try {
-              await this.client.messageFlagsAdd(seq, ['\\Seen'])
               await this.moveToFolder(seq, 'Failed')
             } catch (moveError) {
               logger.error(`Failed to move email ${seq} to Failed folder:`, moveError)
@@ -201,7 +205,39 @@ export class EmailReader {
     }
   }
 
-  private async processEmail(source: Buffer, envelope: any) {
+  /**
+   * Find job posting by exact subject match (case-insensitive)
+   * Email subject must match job_title exactly
+   */
+  private async findJobByExactSubject(emailSubject: string): Promise<any | null> {
+    try {
+      const { rows } = await query(
+        `SELECT jp.job_posting_id, jp.company_id, jp.job_title, jp.job_description, 
+                jp.skills_required as required_skills, jp.application_deadline, 
+                jp.interview_start_time, jp.meeting_link, jp.created_at, jp.updated_at
+         FROM job_postings jp
+         WHERE (jp.status IS NULL OR jp.status = 'ACTIVE' OR jp.status = '')
+           AND LOWER(TRIM(jp.job_title)) = LOWER(TRIM($1))
+         ORDER BY jp.created_at DESC
+         LIMIT 1`,
+        [emailSubject]
+      )
+      
+      if (rows[0]) {
+        return rows[0]
+      }
+      
+      return null
+    } catch (error) {
+      logger.error('Error finding job by subject:', error)
+      return null
+    }
+  }
+
+  /**
+   * Process email for a specific job posting (exact subject match)
+   */
+  private async processEmailForJob(source: Buffer, envelope: any, seq: number, job: any): Promise<boolean> {
     try {
       const parsed = await simpleParser(source)
       
@@ -209,30 +245,13 @@ export class EmailReader {
       const senderEmail = parsed.from?.value[0]?.address || envelope.from[0]?.address || ''
       const subject = parsed.subject || envelope.subject || ''
 
-      logger.info(`Processing email from ${senderEmail}: ${subject}`)
+      logger.info(`Processing email from ${senderEmail} for job: ${job.job_title}`)
 
-      // Detect job from subject
-      const jobMatch = this.detectJobFromSubject(subject)
-      if (!jobMatch) {
-        logger.warn(`Could not detect job from subject: ${subject}`)
-        return
-      }
-
-      // Find job posting
-      const company = await this.companyRepo.findByName(jobMatch.companyName)
+      // Get company from job
+      const company = await this.companyRepo.findById(job.company_id)
       if (!company) {
-        logger.warn(`Company not found: ${jobMatch.companyName}`)
-        return
-      }
-
-      const jobs = await this.jobPostingRepo.findByCompany(company.company_id)
-      const job = jobs.find(j => 
-        j.job_title.toLowerCase().includes(jobMatch.jobTitle.toLowerCase())
-      )
-
-      if (!job) {
-        logger.warn(`Job not found: ${jobMatch.jobTitle} for ${jobMatch.companyName}`)
-        return
+        logger.warn(`Company not found for job ${job.job_posting_id}`)
+        return false
       }
 
       // Extract attachments (CV)
@@ -252,9 +271,24 @@ export class EmailReader {
             // Save CV file
             const savedPath = await saveFile(`cvs/${job.job_posting_id}_${Date.now()}_${filename}`, cvBuffer)
             cvUrl = savedPath
+            logger.info(`CV extracted and saved: ${filename} -> ${savedPath}`)
             break
           }
         }
+      }
+
+      // Check if CV was extracted
+      if (!cvBuffer || !cvMimeType) {
+        logger.warn(`No CV attachment found in email from ${senderEmail} for job ${job.job_posting_id}`)
+        // Still create application record but return false (keep email unread)
+        await this.applicationRepo.create({
+          job_posting_id: job.job_posting_id,
+          company_id: company.company_id,
+          candidate_name: senderName,
+          email: senderEmail,
+          resume_url: null
+        })
+        return false
       }
 
       // Create application record
@@ -266,11 +300,14 @@ export class EmailReader {
         resume_url: cvUrl
       })
 
-      // Process CV if available
-      if (cvBuffer && cvMimeType) {
+      // Process CV - this is where CV extraction is confirmed
+      try {
         await this.processCandidateCV(application.application_id, cvBuffer, cvMimeType, job, company)
-      } else {
-        logger.warn(`No CV attachment found for application ${application.application_id}`)
+        logger.info(`CV successfully processed for application ${application.application_id}`)
+      } catch (cvError) {
+        logger.error(`Error processing CV for application ${application.application_id}:`, cvError)
+        // CV extraction failed, return false to keep email unread
+        return false
       }
 
       // Send HR notification
@@ -282,9 +319,162 @@ export class EmailReader {
         companyName: company.company_name
       })
 
-      logger.info(`Successfully processed application from ${senderEmail} for job ${job.job_posting_id}`)
+      logger.info(`Successfully processed application from ${senderEmail} for job ${job.job_posting_id} - CV extracted and analyzed`)
+      return true // CV was successfully extracted and processed
     } catch (error) {
       logger.error('Error processing email:', error)
+      return false // Keep email unread on error
+    }
+  }
+
+  private async processEmail(source: Buffer, envelope: any, seq: number): Promise<boolean> {
+    try {
+      const parsed = await simpleParser(source)
+      
+      const senderName = parsed.from?.text || envelope.from[0]?.name || 'Unknown'
+      const senderEmail = parsed.from?.value[0]?.address || envelope.from[0]?.address || ''
+      const subject = parsed.subject || envelope.subject || ''
+
+      logger.info(`Processing email from ${senderEmail}: ${subject}`)
+
+      // Detect job from subject
+      const jobMatch = this.detectJobFromSubject(subject)
+      if (!jobMatch) {
+        logger.warn(`Could not detect job from subject: ${subject}`)
+        return false
+      }
+
+      logger.info(`Detected job: "${jobMatch.jobTitle}" at "${jobMatch.companyName}"`)
+
+      // Strategy 1: Try to find company first, then job
+      let company = await this.companyRepo.findByName(jobMatch.companyName)
+      let job = null
+
+      if (company) {
+        logger.info(`Found company: ${company.company_name}`)
+        const jobs = await this.jobPostingRepo.findByCompany(company.company_id)
+        job = jobs.find(j => 
+          j.job_title.toLowerCase().includes(jobMatch.jobTitle.toLowerCase()) ||
+          jobMatch.jobTitle.toLowerCase().includes(j.job_title.toLowerCase())
+        )
+        if (job) {
+          logger.info(`Found job by company: ${job.job_title} at ${company.company_name}`)
+        }
+      }
+
+      // Strategy 2: If company/job not found, search all active jobs by title
+      if (!job) {
+        logger.info(`Searching all active jobs for title: "${jobMatch.jobTitle}"`)
+        const { rows: allJobs } = await query(
+          `SELECT jp.job_posting_id, jp.company_id, jp.job_title, jp.job_description, 
+                  jp.skills_required as required_skills, jp.application_deadline, 
+                  jp.interview_start_time, jp.meeting_link, jp.created_at, jp.updated_at
+           FROM job_postings jp
+           WHERE (jp.status IS NULL OR jp.status = 'ACTIVE' OR jp.status = '')
+           ORDER BY jp.created_at DESC
+           LIMIT 50`
+        )
+        
+        // Try to find best match by title (case-insensitive, partial match)
+        const jobTitleLower = jobMatch.jobTitle.toLowerCase()
+        job = allJobs.find((j: any) => {
+          const dbTitle = j.job_title.toLowerCase()
+          return dbTitle === jobTitleLower ||
+                 dbTitle.includes(jobTitleLower) || 
+                 jobTitleLower.includes(dbTitle) ||
+                 jobTitleLower.split(/\s+/).some(word => word.length > 3 && dbTitle.includes(word))
+        })
+        
+        if (job) {
+          logger.info(`Found job by title match: ${job.job_title}`)
+          // Get company from job
+          company = await this.companyRepo.findById(job.company_id)
+          if (company) {
+            logger.info(`Found company from job: ${company.company_name}`)
+          }
+        }
+      }
+
+      if (!job) {
+        logger.warn(`Job not found: "${jobMatch.jobTitle}" (company: "${jobMatch.companyName}"). Available jobs may not match.`)
+        return false
+      }
+
+      if (!company) {
+        logger.warn(`Company not found for job ${job.job_posting_id}`)
+        return false
+      }
+
+      // Extract attachments (CV)
+      let cvUrl: string | null = null
+      let cvBuffer: Buffer | null = null
+      let cvMimeType: string | null = null
+
+      if (parsed.attachments && parsed.attachments.length > 0) {
+        for (const attachment of parsed.attachments) {
+          const filename = attachment.filename || 'attachment'
+          const ext = filename.toLowerCase()
+          
+          if (ext.endsWith('.pdf') || ext.endsWith('.docx') || ext.endsWith('.doc')) {
+            cvBuffer = attachment.content as Buffer
+            cvMimeType = attachment.contentType || 'application/pdf'
+            
+            // Save CV file
+            const savedPath = await saveFile(`cvs/${job.job_posting_id}_${Date.now()}_${filename}`, cvBuffer)
+            cvUrl = savedPath
+            logger.info(`CV extracted and saved: ${filename} -> ${savedPath}`)
+            break
+          }
+        }
+      }
+
+      // Check if CV was extracted
+      if (!cvBuffer || !cvMimeType) {
+        logger.warn(`No CV attachment found in email from ${senderEmail} for job ${job.job_posting_id}`)
+        // Still create application record but return false (keep email unread)
+        await this.applicationRepo.create({
+          job_posting_id: job.job_posting_id,
+          company_id: company.company_id,
+          candidate_name: senderName,
+          email: senderEmail,
+          resume_url: null
+        })
+        return false
+      }
+
+      // Create application record
+      const application = await this.applicationRepo.create({
+        job_posting_id: job.job_posting_id,
+        company_id: company.company_id,
+        candidate_name: senderName,
+        email: senderEmail,
+        resume_url: cvUrl
+      })
+
+      // Process CV - this is where CV extraction is confirmed
+      try {
+        await this.processCandidateCV(application.application_id, cvBuffer, cvMimeType, job, company)
+        logger.info(`CV successfully processed for application ${application.application_id}`)
+      } catch (cvError) {
+        logger.error(`Error processing CV for application ${application.application_id}:`, cvError)
+        // CV extraction failed, return false to keep email unread
+        return false
+      }
+
+      // Send HR notification
+      await this.emailService.sendHRNotification({
+        hrEmail: company.hr_email,
+        candidateName: senderName,
+        candidateEmail: senderEmail,
+        jobTitle: job.job_title,
+        companyName: company.company_name
+      })
+
+      logger.info(`Successfully processed application from ${senderEmail} for job ${job.job_posting_id} - CV extracted and analyzed`)
+      return true // CV was successfully extracted and processed
+    } catch (error) {
+      logger.error('Error processing email:', error)
+      return false // Keep email unread on error
     }
   }
 
@@ -347,14 +537,22 @@ export class EmailReader {
       // Extract skills
       const extractedSkills = this.cvParser.extractSkills(parsed.textContent, job.required_skills || [])
 
-      // Score candidate (aligned with new input format)
+      // Score candidate (aligned with new input format - includes company details)
       const scoringResult = await this.aiScoring.scoreCandidate({
         job: {
           title: job.job_title,
           description: job.job_description,
           required_skills: job.required_skills || []
         },
-        cvText: parsed.textContent
+        company: {
+          company_name: company.company_name,
+          company_domain: company.company_domain || null,
+          company_email: company.company_email || null,
+          hr_email: company.hr_email || null,
+          hiring_manager_email: company.hiring_manager_email || null,
+          settings: company.settings || null
+        },
+        cvText: parsed.textContent // Full CV text - no truncation before passing to AI
       })
 
       // Map status: FLAGGED -> FLAG, REJECTED -> REJECT (to match database enum)

@@ -6,9 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScheduleInterviewModal } from '@/components/modals/ScheduleInterviewModal'
-import { Loader2, ArrowLeft, ExternalLink, Home, Briefcase } from 'lucide-react'
+import { Loader2, ArrowLeft, ExternalLink, Home, Briefcase, AlertTriangle } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
 import { TopNavigation } from '@/components/dashboard/top-navigation'
+import { cleanCandidateName } from '@/lib/utils'
 
 interface CandidateDetail {
   id: string
@@ -18,6 +19,7 @@ interface CandidateDetail {
   status: string
   interview_time: string | null
   interview_link: string | null
+  interview_status: string | null
   parsed_resume: any
   reasoning: string
   resume_url: string
@@ -54,6 +56,7 @@ export default function CandidateDetailPage() {
     }
     fetchCandidateDetail()
     fetchMeetingLink()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [applicantId, jobId, user])
 
   const fetchCandidateDetail = async () => {
@@ -70,8 +73,8 @@ export default function CandidateDetailPage() {
         throw new Error('Not authenticated')
       }
 
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'
-      const response = await fetch(`${backendUrl}/api/hr/candidates/${applicantId}`, {
+      // Use frontend API route instead of backend directly
+      const response = await fetch(`/api/hr/candidates/${applicantId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -79,11 +82,22 @@ export default function CandidateDetailPage() {
       })
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
+        let errorMessage = 'Failed to fetch candidate details'
+        try {
+          const errorData = await response.json()
+          errorMessage = errorData.error || errorMessage
+        } catch {
+          // If response is not JSON, use status text
+          errorMessage = response.statusText || errorMessage
+        }
+        
         if (response.status === 404) {
           throw new Error('Candidate not found')
         }
-        throw new Error(errorData.error || 'Failed to fetch candidate details')
+        if (response.status === 401) {
+          throw new Error('Unauthorized - Please sign in again')
+        }
+        throw new Error(errorMessage)
       }
 
       const data = await response.json()
@@ -104,15 +118,21 @@ export default function CandidateDetailPage() {
       const token = localStorage.getItem('token')
       if (!token) return
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/job-postings/${jobId}`, {
+      // Use frontend API route instead of backend directly
+      const response = await fetch(`/api/job-postings`, {
         headers: {
           Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
       })
 
       if (response.ok) {
-        const job = await response.json()
-        setMeetingLink(job.meeting_link || '')
+        const data = await response.json()
+        const jobs = data.jobs || []
+        const job = jobs.find((j: any) => (j.id || j.job_posting_id) === jobId)
+        if (job) {
+          setMeetingLink(job.meeting_link || job.interview_meeting_link || '')
+        }
       }
     } catch (err) {
       console.error('Failed to fetch meeting link:', err)
@@ -123,13 +143,13 @@ export default function CandidateDetailPage() {
     switch (status.toUpperCase()) {
       case 'SHORTLIST':
       case 'SHORTLISTED':
-        return 'success'
+        return 'shortlisted'
       case 'FLAG':
       case 'FLAGGED':
-        return 'warning'
+        return 'flagged'
       case 'REJECT':
       case 'REJECTED':
-        return 'destructive'
+        return 'rejected'
       default:
         return 'info'
     }
@@ -137,25 +157,59 @@ export default function CandidateDetailPage() {
 
   const isShortlisted = candidate?.status.toUpperCase() === 'SHORTLIST' || candidate?.status.toUpperCase() === 'SHORTLISTED'
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin" />
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+        <div className="sticky top-0 z-10 bg-white/95 dark:bg-gray-950/95 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 shadow-sm">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between h-16">
+              <TopNavigation />
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-[#2D2DDD]" />
+            <p className="text-gray-600 dark:text-gray-400">Loading candidate details...</p>
+          </div>
+        </div>
       </div>
     )
   }
 
   if (error || !candidate) {
     return (
-      <div className="p-6">
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-red-500">{error || 'Candidate not found'}</p>
-            <Button onClick={() => router.back()} className="mt-4">
-              Go Back
-            </Button>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+        <div className="sticky top-0 z-10 bg-white/95 dark:bg-gray-950/95 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 shadow-sm">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between h-16">
+              <TopNavigation />
+            </div>
+          </div>
+        </div>
+        <div className="container mx-auto p-6">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-center">
+                <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+                <p className="text-red-500 text-lg font-semibold mb-2">Failed to load candidate</p>
+                <p className="text-gray-600 dark:text-gray-400 mb-4">{error || 'Candidate not found'}</p>
+                <Button 
+                  onClick={() => {
+                    if (jobId) {
+                      router.push(`/dashboard/job/${jobId}/shortlisted`)
+                    } else {
+                      router.push('/dashboard/jobs')
+                    }
+                  }}
+                  className="bg-[#2D2DDD] hover:bg-[#2D2DDD] text-white shadow-none hover:shadow-none"
+                >
+                  Go Back
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     )
   }
@@ -175,7 +229,6 @@ export default function CandidateDetailPage() {
         {/* Back Button and Breadcrumb */}
         <div className="flex items-center justify-between gap-4">
           <Button
-            variant="ghost"
             onClick={() => {
               if (!jobId) {
                 console.error('Missing jobId for navigation')
@@ -189,7 +242,7 @@ export default function CandidateDetailPage() {
                 router.push('/dashboard/jobs')
               }
             }}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 bg-[#2D2DDD] hover:bg-[#2D2DDD] text-white shadow-none hover:shadow-none"
           >
             <ArrowLeft className="w-4 h-4" />
             Back to Candidates
@@ -210,14 +263,14 @@ export default function CandidateDetailPage() {
         <CardHeader>
           <div className="flex items-start justify-between">
             <div>
-              <CardTitle className="text-2xl">{candidate.candidate_name}</CardTitle>
+              <CardTitle className="text-2xl">{cleanCandidateName(candidate.candidate_name)}</CardTitle>
               <CardDescription className="mt-1">{candidate.email}</CardDescription>
             </div>
             <div className="flex items-center gap-4">
               {candidate.score !== null && (
                 <div className="text-right">
                   <div className="text-sm text-gray-500">Score</div>
-                  <div className="text-3xl font-bold text-primary">
+                  <div className="text-3xl font-bold text-[#2D2DDD] dark:text-white">
                     {Math.round(candidate.score)}
                   </div>
                 </div>
@@ -226,113 +279,25 @@ export default function CandidateDetailPage() {
                 {candidate.status}
               </Badge>
               {isShortlisted && (
-                <Button onClick={() => setIsModalOpen(true)}>
-                  Schedule Interview
-                </Button>
+                candidate.interview_status === 'SCHEDULED' || candidate.interview_time ? (
+                  <Button 
+                    disabled
+                    className="bg-green-600 hover:bg-green-600 text-white shadow-none hover:shadow-none cursor-not-allowed"
+                  >
+                    Scheduled
+                  </Button>
+                ) : (
+                  <Button 
+                    onClick={() => setIsModalOpen(true)}
+                    className="bg-[#2D2DDD] hover:bg-[#2D2DDD] text-white shadow-none hover:shadow-none"
+                  >
+                    Schedule Interview
+                  </Button>
+                )
               )}
             </div>
           </div>
         </CardHeader>
-      </Card>
-
-      {/* Parsed Resume */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Parsed Resume</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {candidate.parsed_resume && (
-            <>
-              {candidate.parsed_resume.skills && (
-                <div>
-                  <h3 className="font-semibold mb-2">Skills</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {Array.isArray(candidate.parsed_resume.skills)
-                      ? candidate.parsed_resume.skills.map((skill: string, idx: number) => (
-                          <Badge key={idx} variant="outline">{skill}</Badge>
-                        ))
-                      : Object.entries(candidate.parsed_resume.skills).map(([key, value]: [string, any]) => (
-                          <Badge key={key} variant="outline">{key}: {String(value)}</Badge>
-                        ))}
-                  </div>
-                </div>
-              )}
-
-              {candidate.parsed_resume.experience && (
-                <div>
-                  <h3 className="font-semibold mb-2">Experience</h3>
-                  <div className="space-y-2">
-                    {Array.isArray(candidate.parsed_resume.experience)
-                      ? candidate.parsed_resume.experience.map((exp: any, idx: number) => (
-                          <div key={idx} className="border-l-2 pl-4">
-                            <div className="font-medium">{exp.title || exp.position || 'Position'}</div>
-                            <div className="text-sm text-gray-500">{exp.company || exp.employer || ''}</div>
-                            {exp.duration && <div className="text-xs text-gray-400">{exp.duration}</div>}
-                          </div>
-                        ))
-                      : <pre className="text-sm">{JSON.stringify(candidate.parsed_resume.experience, null, 2)}</pre>}
-                  </div>
-                </div>
-              )}
-
-              {candidate.parsed_resume.education && (
-                <div>
-                  <h3 className="font-semibold mb-2">Education</h3>
-                  <div className="space-y-2">
-                    {Array.isArray(candidate.parsed_resume.education)
-                      ? candidate.parsed_resume.education.map((edu: any, idx: number) => (
-                          <div key={idx} className="border-l-2 pl-4">
-                            <div className="font-medium">{edu.degree || edu.school || 'Education'}</div>
-                            {edu.institution && <div className="text-sm text-gray-500">{edu.institution}</div>}
-                          </div>
-                        ))
-                      : <pre className="text-sm">{JSON.stringify(candidate.parsed_resume.education, null, 2)}</pre>}
-                  </div>
-                </div>
-              )}
-
-              {candidate.parsed_resume.links && (
-                <div>
-                  <h3 className="font-semibold mb-2">Links</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {Array.isArray(candidate.parsed_resume.links)
-                      ? candidate.parsed_resume.links.map((link: string, idx: number) => (
-                          <a
-                            key={idx}
-                            href={link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-primary hover:underline flex items-center gap-1"
-                          >
-                            {link}
-                            <ExternalLink className="h-3 w-3" />
-                          </a>
-                        ))
-                      : Object.entries(candidate.parsed_resume.links).map(([key, value]: [string, any]) => (
-                          <a
-                            key={key}
-                            href={String(value)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-primary hover:underline flex items-center gap-1"
-                          >
-                            {key}: {String(value)}
-                            <ExternalLink className="h-3 w-3" />
-                          </a>
-                        ))}
-                  </div>
-                </div>
-              )}
-
-              <details className="mt-4">
-                <summary className="cursor-pointer font-semibold">Full JSON</summary>
-                <pre className="mt-2 p-4 bg-gray-100 dark:bg-gray-800 rounded text-xs overflow-auto">
-                  {JSON.stringify(candidate.parsed_resume, null, 2)}
-                </pre>
-              </details>
-            </>
-          )}
-        </CardContent>
       </Card>
 
       {/* AI Reasoning */}
@@ -351,16 +316,16 @@ export default function CandidateDetailPage() {
       {candidate.resume_url && (
         <Card>
           <CardHeader>
-            <CardTitle>Resume</CardTitle>
+            <CardTitle>Curriculum Vitae(CV)</CardTitle>
           </CardHeader>
           <CardContent>
             <a
               href={candidate.resume_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-primary hover:underline flex items-center gap-2"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-[#2D2DDD] text-white rounded-lg transition-transform hover:scale-105 active:scale-95 no-underline"
             >
-              View Resume
+              View CV
               <ExternalLink className="h-4 w-4" />
             </a>
           </CardContent>

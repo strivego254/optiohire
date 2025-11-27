@@ -16,9 +16,17 @@ const PricingSection = dynamic(() => import('@/components/ui/pricing-section').t
   ssr: true,
 })
 
-const FeatureCarousel = dynamic(() => import('@/components/ui/animated-feature-carousel').then(mod => ({ default: mod.FeatureCarousel })), {
+const FinalCTASection = dynamic(() => import('@/components/ui/final-cta-section').then(mod => ({ default: mod.default })), {
   ssr: false,
-  loading: () => <div className="h-[480px] lg:h-[560px] bg-neutral-800/50 rounded-2xl animate-pulse" />,
+})
+
+const HowItWorksCards = dynamic(() => import('@/components/ui/how-it-works-cards').then(mod => ({ default: mod.default })), {
+  ssr: false,
+  loading: () => <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 md:gap-8 w-full">
+    {[1, 2, 3, 4].map((i) => (
+      <div key={i} className="h-[400px] bg-neutral-800/50 rounded-[32px] animate-pulse" />
+    ))}
+  </div>,
 })
 
 const StackingCardComponent = dynamic(() => import('@/components/ui/stacking-card').then(mod => ({ default: mod.default })), {
@@ -138,7 +146,7 @@ export default function HomePageContent() {
       title: 'Higher Quality Hires',
       description: 'Improve candidate quality with AI-powered matching and predictive analytics for better outcomes.',
       value: '40% better retention',
-      color: 'from-purple-500 to-pink-600',
+      color: 'from-[#2D2DDD] to-pink-600',
     },
     {
       icon: Shield,
@@ -230,8 +238,8 @@ export default function HomePageContent() {
                     <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-lg bg-gradient-to-r from-[#3ca2fa] to-blue-600 flex items-center justify-center mb-2 sm:mb-3 md:mb-4 group-hover:scale-110 transition-transform shadow-lg shadow-[#3ca2fa]/30">
                       <solution.icon className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-white" />
                     </div>
-                    <h3 className="text-[11px] sm:text-[13px] md:text-[15px] font-semibold mb-1 sm:mb-2 text-white leading-tight">{solution.title}</h3>
-                    <p className="text-[9px] sm:text-xs md:text-sm text-gray-300 mb-2 sm:mb-3 leading-snug line-clamp-3">{solution.description}</p>
+                    <h3 className="text-[15px] sm:text-[20px] md:text-[24px] font-semibold mb-1 sm:mb-2 text-white leading-tight">{solution.title}</h3>
+                    <p className="text-xs sm:text-sm md:text-base text-gray-300 mb-2 sm:mb-3 leading-snug line-clamp-3">{solution.description}</p>
                     <div className="text-[9px] sm:text-xs md:text-sm font-medium text-[#3ca2fa] bg-[#3ca2fa]/10 px-2 py-0.5 sm:px-2.5 sm:py-1 md:px-3 md:py-1 rounded-full inline-block border border-[#3ca2fa]/20">{solution.metrics}</div>
                   </CardContent>
                 </Card>
@@ -255,17 +263,17 @@ export default function HomePageContent() {
             
             // Select appropriate images for each benefit
             const imageMap: Record<string, string> = {
-              'Reduce Hiring Costs': 'https://images.unsplash.com/photo-1556761175-4b46a572b786?q=80&w=1000&auto=format&fit=crop',
-              'Faster Time-to-Hire': 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?q=80&w=1000&auto=format&fit=crop',
-              'Higher Quality Hires': 'https://images.unsplash.com/photo-1521737711867-e3b97375f902?q=80&w=1000&auto=format&fit=crop',
-              'Compliance & Security': 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?q=80&w=1000&auto=format&fit=crop',
+              'Reduce Hiring Costs': '/assets/images/Reduce Cost Image.jpg',
+              'Faster Time-to-Hire': '/assets/images/Higher Faster.jpg',
+              'Higher Quality Hires': '/assets/images/Quality Hires.jpg',
+              'Compliance & Security': '/assets/images/Security and Compliance Image.jpg',
             };
 
             return {
               title: benefit.title,
               description: benefit.description,
-              link: imageMap[benefit.title] || 'https://images.unsplash.com/photo-1556761175-4b46a572b786?q=80&w=1000&auto=format&fit=crop',
-              color: colorMap[benefit.title] || '#4A0DBA',
+              link: imageMap[benefit.title] || '/assets/images/Reduce Cost Image.jpg',
+              color: colorMap[benefit.title] || '#2D2DDD',
               value: benefit.value,
               icon: benefit.icon,
             };
@@ -281,9 +289,9 @@ export default function HomePageContent() {
 
       
 
-      {/* Enhanced How It Works Section with Animated Carousel */}
+      {/* Enhanced How It Works Section with Modern Cards */}
       <section className="py-12 sm:py-16 md:py-20 px-4 sm:px-6 bg-black relative overflow-hidden">
-        <div className="container mx-auto max-w-6xl">
+        <div className="container mx-auto max-w-7xl">
           <motion.div
             initial={{ opacity: 1, y: 0 }}
             animate={{ opacity: 1, y: 0 }}
@@ -298,24 +306,17 @@ export default function HomePageContent() {
             </p>
           </motion.div>
 
-          <FeatureCarousel
-            image={{
-              alt: "How It Works - Recruitment Process",
-              step1img1: "https://images.unsplash.com/photo-1521737711867-e3b97375f902?q=80&w=1740&auto=format&fit=crop",
-              step1img2: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?q=80&w=1740&auto=format&fit=crop",
-              step2img1: "https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?q=80&w=1740&auto=format&fit=crop",
-              step2img2: "https://images.unsplash.com/photo-1552664730-d307ca884978?q=80&w=1740&auto=format&fit=crop",
-              step3img: "https://images.unsplash.com/photo-1556761175-b413da4baf72?q=80&w=1740&auto=format&fit=crop",
-              step4img: "https://images.unsplash.com/photo-1551434678-e076c223a692?q=80&w=1740&auto=format&fit=crop",
-            }}
-          />
+          <HowItWorksCards />
         </div>
       </section>
 
       {/* Pricing Section */}
-      <section className="relative bg-black overflow-hidden pb-16 sm:pb-20 md:pb-24 lg:pb-28">
+      <section className="relative bg-black overflow-hidden pb-8 sm:pb-12 md:pb-16">
         <PricingSection />
       </section>
+
+      {/* Final CTA Section */}
+      <FinalCTASection />
     </>
   )
 }

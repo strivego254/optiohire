@@ -10,19 +10,27 @@ export async function startReportScheduler() {
 
   async function checkAndGenerateReports() {
     try {
+      logger.info('Checking for jobs that need report generation...')
+      
       // Find jobs where deadline has passed and no report exists
+      // Also include CLOSED jobs that might have been closed manually
       const { rows: jobs } = await query<{ 
         job_posting_id: string
         job_title: string
         company_id: string
+        application_deadline: string | null
+        status: string
       }>(
-        `SELECT jp.job_posting_id, jp.job_title, jp.company_id
+        `SELECT jp.job_posting_id, jp.job_title, jp.company_id, jp.application_deadline, jp.status
          FROM job_postings jp
          LEFT JOIN reports r ON r.job_posting_id = jp.job_posting_id
-         WHERE jp.application_deadline IS NOT NULL
-           AND jp.application_deadline < NOW()
+         WHERE (
+           (jp.application_deadline IS NOT NULL AND jp.application_deadline < NOW())
+           OR jp.status = 'CLOSED'
+         )
            AND r.id IS NULL
-         LIMIT 10`,
+         ORDER BY jp.application_deadline ASC NULLS LAST
+         LIMIT 20`,
         []
       )
 
@@ -35,11 +43,11 @@ export async function startReportScheduler() {
 
       for (const job of jobs) {
         try {
-          logger.info(`Generating report for job ${job.job_posting_id} (${job.job_title})...`)
+          logger.info(`Generating report for job ${job.job_posting_id} (${job.job_title}) - Status: ${job.status}, Deadline: ${job.application_deadline || 'N/A'}`)
           const result = await generatePostDeadlineReport(job.job_posting_id)
-          logger.info(`Report generated successfully: ${result.reportId} for job ${job.job_posting_id}`)
+          logger.info(`✅ Report generated successfully: ${result.reportId} for job ${job.job_posting_id}`)
         } catch (error: any) {
-          logger.error(`Failed to generate report for job ${job.job_posting_id}:`, error)
+          logger.error(`❌ Failed to generate report for job ${job.job_posting_id}:`, error.message || error)
           // Continue with other jobs even if one fails
         }
       }
@@ -55,10 +63,6 @@ export async function startReportScheduler() {
   setInterval(checkAndGenerateReports, CRON_INTERVAL_MS)
 }
 
-// Start scheduler if not in test mode
-if (process.env.NODE_ENV !== 'test' && !process.env.DISABLE_REPORT_SCHEDULER) {
-  startReportScheduler().catch((err) => {
-    logger.error('Failed to start report scheduler:', err)
-  })
-}
+// Note: Scheduler is now started explicitly in server.ts
+// This allows better control and error handling during server startup
 

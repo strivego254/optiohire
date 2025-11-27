@@ -7,6 +7,7 @@ import {
   endOfMonth,
   endOfWeek,
   format,
+  isBefore,
   isEqual,
   isSameDay,
   isSameMonth,
@@ -749,7 +750,7 @@ export const Calendar = ({
           <div className={clsx(horizontalLayout && "flex gap-5")}>
             <div>
               <div className="flex justify-between items-center mb-3">
-                <h2 className="text-sm text-gray-900 font-medium">
+                <h2 className="text-sm text-gray-900 dark:text-white font-medium">
                   {format(currentDate, "MMMM yyyy")}
                 </h2>
                 <div className="flex gap-1">
@@ -761,7 +762,7 @@ export const Calendar = ({
                   </Button>
                 </div>
               </div>
-              <div className="grid grid-cols-7 text-center text-xs text-slate-500 uppercase mb-2">
+              <div className="grid grid-cols-7 text-center text-xs text-slate-500 dark:text-slate-400 uppercase mb-2">
                 <div>M</div>
                 <div>T</div>
                 <div>W</div>
@@ -776,6 +777,13 @@ export const Calendar = ({
                   const isEnd = value?.end && isSameDay(dayItem, value.end)
                   const currentHover =
                     hoverDate && isSelecting && isSameDay(dayItem, hoverDate)
+                  
+                  // Check if date is from current month
+                  const isCurrentMonth = isSameMonth(dayItem, currentDate)
+                  
+                  // Check if date is in the past (before today)
+                  const today = startOfDay(new Date())
+                  const isPastDate = isBefore(startOfDay(dayItem), today)
                   
                   // Safely check if date is in range, ensuring valid intervals
                   let isInRange = false
@@ -804,7 +812,7 @@ export const Calendar = ({
                     <div
                       key={dayItem.toString()}
                       className={clsx(
-                        "flex items-center justify-center text-sm text-center rounded transition text-white",
+                        "flex items-center justify-center text-sm text-center rounded transition",
                         isInRange && !isStart && !isEnd && !currentHover && "bg-white/5",
                         isAllowedDate ? "cursor-pointer" : "cursor-not-allowed opacity-60"
                       )}
@@ -813,17 +821,45 @@ export const Calendar = ({
                     >
                       <div
                         className={clsx(
-                          "h-8 w-8 flex items-center justify-center rounded-full text-white transition-colors",
+                          "h-8 w-8 flex items-center justify-center rounded-full transition-colors",
                           (isStart || isEnd || currentHover) &&
                             isAllowedDate &&
-                            "bg-white text-[#2D2DDD]",
+                            "bg-[#2D2DDD] text-white",
                           !isStart &&
                             !isEnd &&
                             !currentHover &&
                             isAllowedDate &&
-                            "hover:bg-white/10 hover:text-white",
+                            isCurrentMonth &&
+                            !isPastDate &&
+                            "text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-white/10 dark:hover:text-white",
+                          !isStart &&
+                            !isEnd &&
+                            !currentHover &&
+                            isAllowedDate &&
+                            isCurrentMonth &&
+                            isPastDate &&
+                            "text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-white/10 dark:hover:text-white",
+                          !isStart &&
+                            !isEnd &&
+                            !currentHover &&
+                            isAllowedDate &&
+                            !isCurrentMonth &&
+                            !isPastDate &&
+                            "text-gray-400 dark:text-white hover:bg-gray-100 dark:hover:bg-white/10 dark:hover:text-white",
+                          !isStart &&
+                            !isEnd &&
+                            !currentHover &&
+                            isAllowedDate &&
+                            !isCurrentMonth &&
+                            isPastDate &&
+                            "text-gray-400 dark:text-white hover:bg-gray-100 dark:hover:bg-white/10 dark:hover:text-white",
+                          !isStart &&
+                            !isEnd &&
+                            !currentHover &&
+                            !isAllowedDate &&
+                            "text-gray-400 dark:text-white",
                           currentHover && isAllowedDate && "ring-2 ring-[#2D2DDD]/40",
-                          isToday(dayItem) && !isStart && !isEnd && "bg-white/20 text-white"
+                          isToday(dayItem) && !isStart && !isEnd && "bg-[#2D2DDD]/10 text-gray-900 dark:text-white"
                         )}
                       >
                         {format(dayItem, "d")}

@@ -63,7 +63,7 @@ export default function PricingPage() {
   return (
     <main className="min-h-screen bg-black text-white">
       {/* Pricing Hero */}
-      <section className="relative overflow-hidden py-20 sm:py-24 md:py-28 px-4">
+      <section className="relative overflow-hidden pt-32 pb-20 px-4 sm:pt-40 sm:pb-24 md:pt-48 md:pb-28">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,#2D2DDD40,transparent_60%)]" aria-hidden="true" />
         <div className="container mx-auto max-w-6xl relative z-10 text-center">
           <motion.div

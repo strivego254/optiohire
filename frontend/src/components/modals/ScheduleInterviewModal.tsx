@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label'
 import { DateTimePicker } from '@/components/ui/date-time-picker'
 import { useAuth } from '@/hooks/use-auth'
 import type { Candidate } from '@/components/CandidateRow'
+import { cleanCandidateName } from '@/lib/utils'
 
 interface ScheduleInterviewModalProps {
   isOpen: boolean
@@ -34,6 +35,7 @@ export function ScheduleInterviewModal({
   const [interviewTime, setInterviewTime] = useState<string>('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showSuccess, setShowSuccess] = useState(false)
   const { user } = useAuth()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -53,8 +55,8 @@ export function ScheduleInterviewModal({
       const date = new Date(interviewTime)
       const isoString = date.toISOString()
 
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'
-      const response = await fetch(`${backendUrl}/api/schedule-interview`, {
+      // Use Next.js API route instead of calling backend directly
+      const response = await fetch('/api/schedule-interview', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -66,17 +68,45 @@ export function ScheduleInterviewModal({
         }),
       })
 
-      const data = await response.json()
-
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to schedule interview')
+        let errorMessage = 'Failed to schedule interview'
+        let errorDetails = ''
+        try {
+          const data = await response.json()
+          errorMessage = data.error || errorMessage
+          errorDetails = data.details || data.message || ''
+        } catch {
+          // If response is not JSON, use status text
+          errorMessage = response.statusText || `Server error (${response.status})`
+        }
+        // Combine error message and details for better UX
+        const fullError = errorDetails ? `${errorMessage}: ${errorDetails}` : errorMessage
+        throw new Error(fullError)
       }
 
-      onSuccess()
-      onClose()
-      setInterviewTime('')
+      const data = await response.json()
+
+      // Show success message
+      setShowSuccess(true)
+      
+      // Wait a moment before closing and calling onSuccess
+      setTimeout(() => {
+        setShowSuccess(false)
+        onSuccess()
+        onClose()
+        setInterviewTime('')
+      }, 2000)
     } catch (err: any) {
-      setError(err.message || 'Failed to schedule interview')
+      console.error('Schedule interview error:', err)
+      
+      // Handle network errors
+      if (err.name === 'TypeError' && err.message.includes('fetch')) {
+        setError('Network error: Unable to connect to server. Please check your connection and ensure the backend is running.')
+      } else if (err.message) {
+        setError(err.message)
+      } else {
+        setError('Failed to schedule interview. Please try again.')
+      }
     } finally {
       setIsLoading(false)
     }
@@ -90,24 +120,41 @@ export function ScheduleInterviewModal({
         <DialogHeader>
           <DialogTitle>Schedule Interview</DialogTitle>
           <DialogDescription>
-            Schedule an interview for {candidate?.candidate_name}
+            Schedule an interview for {candidate ? cleanCandidateName(candidate.candidate_name) : 'candidate'}
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit}>
+        {showSuccess ? (
           <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="interview-time">Interview Date & Time</Label>
-              <DateTimePicker
-                value={interviewTime}
-                onChange={setInterviewTime}
-                minDateTime={minDateTime}
-                placeholder="Select date and time"
-              />
-              {error && (
-                <p className="text-sm text-red-500">{error}</p>
-              )}
+            <div className="text-center py-8">
+              <div className="w-16 h-16 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                Interview Scheduled Successfully!
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                The interview has been scheduled for {candidate ? cleanCandidateName(candidate.candidate_name) : 'candidate'}
+              </p>
             </div>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit}>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="interview-time">Interview Date & Time</Label>
+                <DateTimePicker
+                  value={interviewTime}
+                  onChange={setInterviewTime}
+                  minDateTime={minDateTime}
+                  placeholder="Select date and time"
+                />
+                {error && (
+                  <p className="text-sm text-red-500">{error}</p>
+                )}
+              </div>
 
             <div className="space-y-2">
               <Label htmlFor="meeting-link">Meeting Link</Label>
@@ -129,14 +176,20 @@ export function ScheduleInterviewModal({
               variant="outline"
               onClick={onClose}
               disabled={isLoading}
+              className="bg-white text-[#2D2DDD] border-[#2D2DDD] hover:bg-[#2D2DDD] hover:text-white shadow-none hover:shadow-none"
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading || !interviewTime}>
+            <Button 
+              type="submit" 
+              disabled={isLoading || !interviewTime}
+              className="bg-[#2D2DDD] hover:bg-[#2D2DDD] text-white shadow-none hover:shadow-none"
+            >
               {isLoading ? 'Scheduling...' : 'Schedule Interview'}
             </Button>
           </DialogFooter>
         </form>
+        )}
       </DialogContent>
     </Dialog>
   )

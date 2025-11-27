@@ -241,7 +241,7 @@ export function EditJobModal({ isOpen, onClose, jobPosting, onSave }: EditJobMod
                     </Button>
                     <Button 
                       type="submit"
-                      className="bg-[#2D2DDD] text-white hover:bg-[#2D2DDD]/90 dark:bg-[#2D2DDD] dark:text-white dark:hover:bg-[#2D2DDD]/90"
+                      className="bg-[#2D2DDD] text-white hover:bg-[#2D2DDD] dark:bg-[#2D2DDD] dark:text-white dark:hover:bg-[#2D2DDD] shadow-none hover:shadow-none"
                     >
                       Save Changes
                     </Button>

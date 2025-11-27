@@ -78,8 +78,34 @@ export async function authenticate(req: AuthRequest, res: Response, next: NextFu
     req.userRole = rows[0].role
 
     next()
-  } catch (err) {
-    return res.status(401).json({ error: 'Invalid token' })
+  } catch (err: any) {
+    console.error('Authentication error:', err)
+    
+    // Provide more specific error messages
+    if (err.name === 'JsonWebTokenError') {
+      return res.status(401).json({ 
+        error: 'Invalid token',
+        details: 'Token is malformed or invalid'
+      })
+    }
+    if (err.name === 'TokenExpiredError') {
+      return res.status(401).json({ 
+        error: 'Invalid token',
+        details: 'Token has expired. Please sign in again.'
+      })
+    }
+    if (err.name === 'NotBeforeError') {
+      return res.status(401).json({ 
+        error: 'Invalid token',
+        details: 'Token is not yet valid'
+      })
+    }
+    
+    // Generic error
+    return res.status(401).json({ 
+      error: 'Invalid token',
+      details: err.message || 'Authentication failed'
+    })
   }
 }
 

@@ -1,85 +1,36 @@
 'use client'
 
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 
-/**
- * Animated Shader Background Component
- * 
- * A high-performance animated shader background using Three.js WebGL.
- * Features:
- * - Optimized rendering with proper cleanup
- * - Responsive to window resize
- * - Reduced motion support for accessibility
- * - Performance monitoring
- * 
- * @component
- */
 const AnimatedShaderBackground = () => {
   const containerRef = useRef<HTMLDivElement>(null)
-  const [isReducedMotion, setIsReducedMotion] = useState(false)
-  const rendererRef = useRef<THREE.WebGLRenderer | null>(null)
-  const sceneRef = useRef<THREE.Scene | null>(null)
-  const cameraRef = useRef<THREE.OrthographicCamera | null>(null)
-  const materialRef = useRef<THREE.ShaderMaterial | null>(null)
-  const animationFrameRef = useRef<number | null>(null)
-  const isAnimatingRef = useRef<boolean>(false)
 
   useEffect(() => {
-    // Check for reduced motion preference
-    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
-    setIsReducedMotion(mediaQuery.matches)
-    
-    const handleReducedMotionChange = (e: MediaQueryListEvent) => {
-      setIsReducedMotion(e.matches)
-    }
-    
-    mediaQuery.addEventListener('change', handleReducedMotionChange)
+    if (!containerRef.current) return
 
     const container = containerRef.current
-    if (!container) return
-
-    // Initialize Three.js scene
     const scene = new THREE.Scene()
-    sceneRef.current = scene
-
     const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1)
-    cameraRef.current = camera
-
-    // Get container dimensions
-    const getContainerSize = () => {
-      const rect = container.getBoundingClientRect()
-      return { width: rect.width, height: rect.height }
-    }
-
-    const initialSize = getContainerSize()
-
-    const renderer = new THREE.WebGLRenderer({ 
-      antialias: true,
-      alpha: true,
-      powerPreference: 'high-performance',
-      // Optimize for continuous rendering
-      preserveDrawingBuffer: false,
-      failIfMajorPerformanceCaveat: false,
-    })
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)) // Limit pixel ratio for performance
-    renderer.setSize(initialSize.width, initialSize.height)
-    // Ensure continuous rendering
-    renderer.setAnimationLoop(null) // Use manual animation loop for better control
-    renderer.domElement.style.position = 'absolute'
-    renderer.domElement.style.top = '0'
-    renderer.domElement.style.left = '0'
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
+    
+    const updateSize = () => {
+      const width = container.clientWidth
+      const height = container.clientHeight
+      renderer.setSize(width, height)
+      if (renderer.domElement) {
     renderer.domElement.style.width = '100%'
     renderer.domElement.style.height = '100%'
-    renderer.domElement.style.pointerEvents = 'none'
-    rendererRef.current = renderer
+      }
+    }
+    
+    updateSize()
     container.appendChild(renderer.domElement)
 
-    // Shader material
     const material = new THREE.ShaderMaterial({
       uniforms: {
         iTime: { value: 0 },
-        iResolution: { value: new THREE.Vector2(initialSize.width, initialSize.height) }
+        iResolution: { value: new THREE.Vector2(container.clientWidth, container.clientHeight) }
       },
       vertexShader: `
         void main() {
@@ -148,104 +99,54 @@ const AnimatedShaderBackground = () => {
       `
     })
 
-    materialRef.current = material
-
     const geometry = new THREE.PlaneGeometry(2, 2)
     const mesh = new THREE.Mesh(geometry, material)
     scene.add(mesh)
 
-    // Animation loop - optimized for smooth continuous animation
+    let frameId: number
     let lastTime = performance.now()
-    let accumulatedTime = 0
-    const targetFPS = 60
-    const frameTime = 1 / targetFPS
     
     const animate = () => {
       const currentTime = performance.now()
-      const deltaTime = (currentTime - lastTime) / 1000 // Convert to seconds
+      const deltaTime = (currentTime - lastTime) / 1000
       lastTime = currentTime
 
-      // Respect reduced motion preference
-      if (!isReducedMotion) {
-        // Use fixed timestep for smooth animation
-        accumulatedTime += Math.min(deltaTime, 0.033) // Cap at 30fps minimum
-        
-        // Update time uniformly for smooth continuous animation
-        while (accumulatedTime >= frameTime) {
-          material.uniforms.iTime.value += frameTime
-          accumulatedTime -= frameTime
-        }
-      }
-      
+      material.uniforms.iTime.value += deltaTime
       renderer.render(scene, camera)
-      animationFrameRef.current = requestAnimationFrame(animate)
+      frameId = requestAnimationFrame(animate)
     }
+    animate()
     
-    // Start animation immediately
-    isAnimatingRef.current = true
-    animationFrameRef.current = requestAnimationFrame(animate)
-
-    // Handle container resize
     const handleResize = () => {
-      const size = getContainerSize()
-      
-      renderer.setSize(size.width, size.height)
-      material.uniforms.iResolution.value.set(size.width, size.height)
+      if (!containerRef.current) return
+      const width = container.clientWidth
+      const height = container.clientHeight
+      renderer.setSize(width, height)
+      material.uniforms.iResolution.value.set(width, height)
     }
 
-    // Throttled resize handler
-    let resizeTimeout: NodeJS.Timeout
-    const throttledResize = () => {
-      clearTimeout(resizeTimeout)
-      resizeTimeout = setTimeout(handleResize, 100)
-    }
-
-    // Use ResizeObserver for better performance on container resize
-    const resizeObserver = new ResizeObserver(() => {
-      throttledResize()
-    })
-    
+    const resizeObserver = new ResizeObserver(handleResize)
     resizeObserver.observe(container)
-    window.addEventListener('resize', throttledResize, { passive: true })
 
-    // Cleanup function
     return () => {
-      mediaQuery.removeEventListener('change', handleReducedMotionChange)
-      
-      isAnimatingRef.current = false
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current)
-        animationFrameRef.current = null
-      }
-      
+      cancelAnimationFrame(frameId)
       resizeObserver.disconnect()
-      window.removeEventListener('resize', throttledResize)
-      
-      if (container && renderer.domElement) {
-        try {
+      if (container && renderer.domElement && container.contains(renderer.domElement)) {
           container.removeChild(renderer.domElement)
-        } catch (e) {
-          // Element may already be removed
-        }
       }
-      
-      // Dispose of Three.js resources
       geometry.dispose()
       material.dispose()
       renderer.dispose()
     }
-  }, [isReducedMotion])
+  }, [])
 
   return (
     <div 
       ref={containerRef} 
-      className="relative w-full h-[520px] md:h-[560px] lg:h-[640px] overflow-hidden bg-black"
+      className="absolute inset-0 w-full h-full overflow-hidden pointer-events-none"
       aria-hidden="true"
-    >
-      <div className="relative z-10 divider" />
-    </div>
+    />
   )
 }
 
 export default AnimatedShaderBackground
-

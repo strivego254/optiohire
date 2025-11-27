@@ -52,7 +52,7 @@ export const GradientCard = memo(({ icon: Icon, title, description, benefits, in
       style={{
         transformStyle: "preserve-3d",
         backgroundColor: "#0e131f",
-        boxShadow: "0 -10px 100px 10px rgba(78, 99, 255, 0.25), 0 0 10px 0 rgba(0, 0, 0, 0.5)",
+        boxShadow: "0 -10px 100px 10px rgba(45, 45, 221, 0.25), 0 0 10px 0 rgba(0, 0, 0, 0.5)",
         willChange: shouldReduceMotion ? "auto" : "transform",
       }}
       initial={{ opacity: 1, y: 0 }}
@@ -103,13 +103,13 @@ export const GradientCard = memo(({ icon: Icon, title, description, benefits, in
         }}
       />
 
-      {/* Purple/blue glow effect */}
+      {/* Blue glow effect */}
       <motion.div
         className="absolute bottom-0 left-0 right-0 h-2/3 z-20"
         style={{
           background: `
-            radial-gradient(ellipse at bottom right, rgba(172, 92, 255, 0.7) -10%, rgba(79, 70, 229, 0) 70%),
-            radial-gradient(ellipse at bottom left, rgba(56, 189, 248, 0.7) -10%, rgba(79, 70, 229, 0) 70%)
+            radial-gradient(ellipse at bottom right, rgba(45, 45, 221, 0.7) -10%, rgba(45, 45, 221, 0) 70%),
+            radial-gradient(ellipse at bottom left, rgba(45, 45, 221, 0.7) -10%, rgba(45, 45, 221, 0) 70%)
           `,
           filter: "blur(40px)",
         }}
@@ -122,12 +122,12 @@ export const GradientCard = memo(({ icon: Icon, title, description, benefits, in
         }}
       />
 
-      {/* Central purple glow */}
+      {/* Central blue glow */}
       <motion.div
         className="absolute bottom-0 left-0 right-0 h-2/3 z-21"
         style={{
           background: `
-            radial-gradient(circle at bottom center, rgba(161, 58, 229, 0.7) -20%, rgba(79, 70, 229, 0) 60%)
+            radial-gradient(circle at bottom center, rgba(45, 45, 221, 0.7) -20%, rgba(45, 45, 221, 0) 60%)
           `,
           filter: "blur(45px)",
         }}
@@ -148,8 +148,8 @@ export const GradientCard = memo(({ icon: Icon, title, description, benefits, in
         }}
         animate={{
           boxShadow: isHovered
-            ? "0 0 20px 4px rgba(172, 92, 255, 0.9), 0 0 30px 6px rgba(138, 58, 185, 0.7), 0 0 40px 8px rgba(56, 189, 248, 0.5)"
-            : "0 0 15px 3px rgba(172, 92, 255, 0.8), 0 0 25px 5px rgba(138, 58, 185, 0.6), 0 0 35px 7px rgba(56, 189, 248, 0.4)",
+            ? "0 0 20px 4px rgba(45, 45, 221, 0.9), 0 0 30px 6px rgba(45, 45, 221, 0.7), 0 0 40px 8px rgba(45, 45, 221, 0.5)"
+            : "0 0 15px 3px rgba(45, 45, 221, 0.8), 0 0 25px 5px rgba(45, 45, 221, 0.6), 0 0 35px 7px rgba(45, 45, 221, 0.4)",
           opacity: isHovered ? 1 : 0.9,
         }}
         transition={{
@@ -195,7 +195,7 @@ export const GradientCard = memo(({ icon: Icon, title, description, benefits, in
           className="mb-auto"
         >
           <motion.h3
-            className="text-[13px] sm:text-[17px] md:text-[21px] font-medium text-white mb-2 sm:mb-3 font-figtree leading-tight"
+            className="text-[15px] sm:text-[20px] md:text-[24px] font-medium text-white mb-2 sm:mb-3 font-figtree leading-tight"
             style={{
               letterSpacing: "-0.01em",
               lineHeight: 1.2,
@@ -212,7 +212,7 @@ export const GradientCard = memo(({ icon: Icon, title, description, benefits, in
           </motion.h3>
 
           <motion.p
-            className="text-[10px] sm:text-xs md:text-sm mb-3 sm:mb-4 md:mb-6 text-gray-300 font-figtree font-light leading-snug"
+            className="text-xs sm:text-sm md:text-base mb-3 sm:mb-4 md:mb-6 text-gray-300 font-figtree font-light leading-snug"
             style={{
               lineHeight: 1.4,
             }}

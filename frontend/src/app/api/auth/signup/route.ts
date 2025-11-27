@@ -13,13 +13,48 @@ export async function POST(request: NextRequest) {
   try {
     // Get database connection
     try {
-      client = await getPool().connect()
+      // Check if DATABASE_URL is available
+      if (!process.env.DATABASE_URL) {
+        console.error('DATABASE_URL is not set in environment variables')
+        return NextResponse.json(
+          {
+            error: 'Database connection failed',
+            details: 'DATABASE_URL environment variable is not set. Please check your .env.local file and restart the server.',
+          },
+          { status: 500 }
+        )
+      }
+      
+      const pool = getPool()
+      console.log('Attempting database connection...')
+      client = await pool.connect()
+      console.log('Database connection successful')
     } catch (dbErr: any) {
       console.error('Database connection error:', dbErr)
+      console.error('Error details:', {
+        message: dbErr?.message,
+        code: dbErr?.code,
+        errno: dbErr?.errno,
+        syscall: dbErr?.syscall,
+        hostname: dbErr?.hostname,
+        hasConnectionString: !!process.env.DATABASE_URL,
+        connectionStringLength: process.env.DATABASE_URL?.length || 0
+      })
+      
+      // Provide more specific error messages
+      let errorDetails = dbErr?.message || 'Could not connect to database.'
+      if (dbErr?.code === 'ENOTFOUND' || dbErr?.code === 'ECONNREFUSED') {
+        errorDetails = 'Cannot reach database server. Please check your network connection and DATABASE_URL.'
+      } else if (dbErr?.message?.includes('password') || dbErr?.message?.includes('authentication')) {
+        errorDetails = 'Database authentication failed. Please check your DATABASE_URL password.'
+      } else if (dbErr?.message?.includes('timeout')) {
+        errorDetails = 'Database connection timeout. The server may be unreachable.'
+      }
+      
       return NextResponse.json(
         {
           error: 'Database connection failed',
-          details: dbErr?.message || 'Could not connect to database. Please check DATABASE_URL environment variable.',
+          details: errorDetails,
         },
         { status: 500 }
       )

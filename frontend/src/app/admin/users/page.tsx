@@ -262,7 +262,7 @@ export default function AdminUsersPage() {
                                   })
                                 }
                               }}
-                              className="bg-purple-600 hover:bg-purple-700"
+                              className="bg-[#2D2DDD] hover:bg-[#2D2DDD]/90"
                             >
                               <Shield className="h-4 w-4 mr-1" />
                               Make Admin

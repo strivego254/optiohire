@@ -220,8 +220,8 @@ export function PerformanceDashboard() {
                   <p className="text-xl font-bold text-gray-900 dark:text-white">{metrics.overview.totalOperations}</p>
                   <p className="text-xs text-muted-foreground">All time</p>
                 </div>
-                <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center">
-                  <Activity className="w-6 h-6 text-purple-600" />
+                <div className="w-12 h-12 rounded-full bg-[#2D2DDD]/10 flex items-center justify-center">
+                  <Activity className="w-6 h-6 text-[#2D2DDD]" />
                 </div>
               </div>
             </CardContent>
@@ -291,11 +291,11 @@ export function PerformanceDashboard() {
                 <p className="text-xl font-bold text-red-600 dark:text-red-400 font-figtree">{metrics.webhook.failed}</p>
               </div>
               <div className="text-center">
-                <div className="w-16 h-16 rounded-full bg-gradient-to-r from-purple-500 to-purple-600 flex items-center justify-center mx-auto mb-3">
+                <div className="w-16 h-16 rounded-full bg-gradient-to-r from-[#2D2DDD] to-[#2D2DDD]/80 flex items-center justify-center mx-auto mb-3">
                   <Clock className="w-8 h-8 text-white" />
                 </div>
                 <h3 className="font-figtree font-semibold mb-1">Avg Response</h3>
-                <p className="text-xl font-bold text-purple-600 dark:text-purple-400 font-figtree">{metrics.webhook.averageResponseTime.toFixed(0)}ms</p>
+                <p className="text-xl font-bold text-[#2D2DDD] dark:text-[#2D2DDD] font-figtree">{metrics.webhook.averageResponseTime.toFixed(0)}ms</p>
               </div>
             </div>
             
@@ -356,11 +356,11 @@ export function PerformanceDashboard() {
                 <p className="text-xl font-bold text-yellow-600 dark:text-yellow-400 font-figtree">{metrics.database.cacheMisses}</p>
               </div>
               <div className="text-center">
-                <div className="w-16 h-16 rounded-full bg-gradient-to-r from-purple-500 to-purple-600 flex items-center justify-center mx-auto mb-3">
+                <div className="w-16 h-16 rounded-full bg-gradient-to-r from-[#2D2DDD] to-[#2D2DDD]/80 flex items-center justify-center mx-auto mb-3">
                   <Clock className="w-8 h-8 text-white" />
                 </div>
                 <h3 className="font-figtree font-semibold mb-1">Avg Query Time</h3>
-                <p className="text-xl font-bold text-purple-600 dark:text-purple-400 font-figtree">{metrics.database.averageQueryTime.toFixed(0)}ms</p>
+                <p className="text-xl font-bold text-[#2D2DDD] dark:text-[#2D2DDD] font-figtree">{metrics.database.averageQueryTime.toFixed(0)}ms</p>
               </div>
               <div className="text-center">
                 <div className="w-16 h-16 rounded-full bg-gradient-to-r from-red-500 to-red-600 flex items-center justify-center mx-auto mb-3">

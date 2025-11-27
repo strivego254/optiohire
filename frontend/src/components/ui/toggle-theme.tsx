@@ -13,14 +13,20 @@ const THEME_OPTIONS = [
 ]
 
 export function ToggleTheme() {
-  const { theme, setTheme, resolvedTheme } = useTheme()
+  const themeContext = useTheme()
   const [isMounted, setIsMounted] = React.useState(false)
 
   React.useEffect(() => {
     setIsMounted(true)
   }, [])
 
-  if (!isMounted) {
+  if (!isMounted || !themeContext) {
+    return <div className="flex h-8 w-24" />
+  }
+
+  const { theme, setTheme, resolvedTheme } = themeContext
+
+  if (!setTheme) {
     return <div className="flex h-8 w-24" />
   }
 

@@ -9,7 +9,7 @@ import { CookieProvider } from '@/components/providers/cookie-provider'
 
 const figtree = Figtree({
   subsets: ['latin'],
-  weight: ['300'],
+  weight: ['400'],
   variable: '--font-figtree',
   display: 'swap',
   preload: true,
@@ -58,7 +58,7 @@ export const viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
-  themeColor: '#e51ae5',
+  themeColor: '#2D2DDD',
 }
 
 export default function RootLayout({

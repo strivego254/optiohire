@@ -370,7 +370,7 @@ export function SettingsSection() {
                 <Button
                   onClick={handleSave}
                   disabled={isSaving}
-                  className="w-full bg-[#2D2DDD] hover:bg-[#2D2DDD]/90 text-white"
+                  className="w-full bg-[#2D2DDD] hover:bg-[#2D2DDD] text-white shadow-none hover:shadow-none"
                 >
                   {isSaving ? (
                     <>
@@ -518,7 +518,7 @@ export function SettingsSection() {
           <Button
             onClick={handleSavePreferences}
             disabled={isSavingPreferences}
-            className="w-full bg-[#2D2DDD] hover:bg-[#2D2DDD]/90 text-white"
+            className="w-full bg-[#2D2DDD] hover:bg-[#2D2DDD] text-white shadow-none hover:shadow-none"
           >
             {isSavingPreferences ? (
               <>

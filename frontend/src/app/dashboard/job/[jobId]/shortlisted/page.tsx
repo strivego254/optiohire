@@ -7,10 +7,11 @@ import { ScheduleInterviewModal } from '@/components/modals/ScheduleInterviewMod
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Loader2, Trophy, Medal, Award, User, ArrowLeft, Home, Briefcase } from 'lucide-react'
+import { Loader2, Trophy, Medal, Award, User, ArrowLeft, Home, Briefcase, AlertTriangle } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
 import { TopNavigation } from '@/components/dashboard/top-navigation'
 import type { Candidate as CandidateRowType } from '@/components/CandidateRow'
+import { cleanCandidateName } from '@/lib/utils'
 
 interface Candidate extends CandidateRowType {
   rank?: number
@@ -64,8 +65,8 @@ export default function ShortlistedPage() {
         throw new Error('Not authenticated')
       }
 
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'
-      const response = await fetch(`${backendUrl}/api/hr/candidates?jobId=${jobId}`, {
+      // Use frontend API route instead of direct backend call
+      const response = await fetch(`/api/hr/candidates?jobId=${jobId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -80,6 +81,7 @@ export default function ShortlistedPage() {
       const data = await response.json()
       setCandidates(Array.isArray(data) ? data : [])
     } catch (err: any) {
+      console.error('Error fetching candidates:', err)
       setError(err.message || 'Failed to load candidates')
       setCandidates([])
     } finally {
@@ -92,16 +94,21 @@ export default function ShortlistedPage() {
       const token = localStorage.getItem('token')
       if (!token) return
 
-      // Fetch job posting to get meeting link
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/job-postings/${jobId}`, {
+      // Fetch job posting to get meeting link using frontend API
+      const response = await fetch(`/api/job-postings`, {
         headers: {
           Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
       })
 
       if (response.ok) {
-        const job = await response.json()
-        setMeetingLink(job.meeting_link || '')
+        const data = await response.json()
+        const jobs = data.jobs || []
+        const job = jobs.find((j: any) => (j.id || j.job_posting_id) === jobId)
+        if (job) {
+          setMeetingLink(job.meeting_link || job.interview_meeting_link || '')
+        }
       }
     } catch (err) {
       console.error('Failed to fetch meeting link:', err)
@@ -130,25 +137,53 @@ export default function ShortlistedPage() {
     fetchCandidates()
   }
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin" />
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+        <div className="sticky top-0 z-10 bg-white/95 dark:bg-gray-950/95 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 shadow-sm">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between h-16">
+              <TopNavigation />
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-[#2D2DDD]" />
+            <p className="text-gray-600 dark:text-gray-400">Loading candidates...</p>
+          </div>
+        </div>
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="p-6">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+        <div className="sticky top-0 z-10 bg-white/95 dark:bg-gray-950/95 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 shadow-sm">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between h-16">
+              <TopNavigation />
+            </div>
+          </div>
+        </div>
+        <div className="container mx-auto p-6">
         <Card>
           <CardContent className="pt-6">
-            <p className="text-red-500">{error}</p>
-            <Button onClick={fetchCandidates} className="mt-4">
+              <div className="text-center">
+                <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+                <p className="text-red-500 text-lg font-semibold mb-2">Failed to load candidates</p>
+                <p className="text-gray-600 dark:text-gray-400 mb-4">{error}</p>
+                <Button 
+                  onClick={fetchCandidates} 
+                  className="bg-[#2D2DDD] hover:bg-[#2D2DDD] text-white shadow-none hover:shadow-none"
+                >
               Retry
             </Button>
+              </div>
           </CardContent>
         </Card>
+        </div>
       </div>
     )
   }
@@ -161,13 +196,16 @@ export default function ShortlistedPage() {
   }
 
   const getStatusBadge = (status: string) => {
-    const statusMap: Record<string, { variant: 'default' | 'secondary' | 'destructive' | 'outline', label: string }> = {
-      'SHORTLIST': { variant: 'default', label: 'Shortlisted' },
-      'FLAG': { variant: 'secondary', label: 'Flagged' },
-      'REJECT': { variant: 'destructive', label: 'Rejected' },
+    const statusMap: Record<string, { variant: 'shortlisted' | 'flagged' | 'rejected' | 'outline', label: string }> = {
+      'SHORTLIST': { variant: 'shortlisted', label: 'Shortlisted' },
+      'SHORTLISTED': { variant: 'shortlisted', label: 'Shortlisted' },
+      'FLAG': { variant: 'flagged', label: 'Flagged' },
+      'FLAGGED': { variant: 'flagged', label: 'Flagged' },
+      'REJECT': { variant: 'rejected', label: 'Rejected' },
+      'REJECTED': { variant: 'rejected', label: 'Rejected' },
       'PENDING': { variant: 'outline', label: 'Pending' },
     }
-    const statusInfo = statusMap[status] || statusMap['PENDING']
+    const statusInfo = statusMap[status.toUpperCase()] || statusMap['PENDING']
     return <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
   }
 
@@ -192,7 +230,6 @@ export default function ShortlistedPage() {
         {/* Back Button and Breadcrumb */}
         <div className="flex items-center justify-between gap-4">
           <Button
-            variant="ghost"
             onClick={() => {
               try {
                 router.push('/dashboard/jobs')
@@ -200,7 +237,7 @@ export default function ShortlistedPage() {
                 console.error('Navigation error:', error)
               }
             }}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 bg-[#2D2DDD] text-white hover:bg-[#2D2DDD] hover:text-white shadow-none hover:shadow-none"
           >
             <ArrowLeft className="w-4 h-4" />
             Back to Jobs
@@ -224,7 +261,13 @@ export default function ShortlistedPage() {
             </CardTitle>
           </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
+          <div 
+            className="overflow-x-auto [&::-webkit-scrollbar]:h-[2px] [&::-webkit-scrollbar]:w-[2px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-[#2D2DDD] [&::-webkit-scrollbar-thumb]:rounded-full"
+            style={{
+              scrollbarWidth: 'thin',
+              scrollbarColor: '#2D2DDD transparent'
+            }}
+          >
             <Table>
               <TableHeader>
                 <TableRow>
@@ -257,15 +300,15 @@ export default function ShortlistedPage() {
                         </div>
                       </TableCell>
                       <TableCell className="font-medium">
-                        {candidate.candidate_name}
+                        {cleanCandidateName(candidate.candidate_name)}
                       </TableCell>
                       <TableCell className="text-gray-600 dark:text-gray-400">
                         {candidate.email}
                       </TableCell>
                       <TableCell className="text-center">
-                        {candidate.score !== null ? (
-                          <span className="font-semibold text-[#2D2DDD]">
-                            {candidate.score.toFixed(1)}
+                        {candidate.score !== null && candidate.score !== undefined && typeof candidate.score === 'number' ? (
+                          <span className="font-semibold text-[#2D2DDD] dark:text-white">
+                            {Number(candidate.score).toFixed(1)}
                           </span>
                         ) : (
                           <span className="text-gray-400">-</span>
@@ -281,13 +324,23 @@ export default function ShortlistedPage() {
                       </TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         {candidate.status === 'SHORTLIST' && (
-                          <Button
-                            size="sm"
-                            onClick={() => handleScheduleClick(candidate)}
-                            className="bg-[#2D2DDD] hover:bg-[#2D2DDD]/90 text-white"
-                          >
-                            Schedule
-                          </Button>
+                          candidate.interview_status === 'SCHEDULED' || candidate.interview_time ? (
+                            <Button
+                              size="sm"
+                              disabled
+                              className="bg-green-600 hover:bg-green-600 text-white shadow-none hover:shadow-none cursor-not-allowed"
+                            >
+                              Scheduled
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              onClick={() => handleScheduleClick(candidate)}
+                              className="bg-[#2D2DDD] hover:bg-[#2D2DDD] text-white shadow-none hover:shadow-none"
+                            >
+                              Schedule
+                            </Button>
+                          )
                         )}
                       </TableCell>
                     </TableRow>

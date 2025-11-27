@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -12,6 +12,7 @@ import { X, Plus, Calendar, Briefcase, MapPin, Users, Loader2, CheckCircle, Aler
 import { JobPostingFormData } from '@/types'
 import { SingleDateTimePicker } from '@/components/ui/single-date-time-picker'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
+import { useAuth } from '@/hooks/use-auth'
 
 interface CreateJobModalProps {
   isOpen: boolean
@@ -20,6 +21,7 @@ interface CreateJobModalProps {
 }
 
 export function CreateJobModal({ isOpen, onClose, onSubmit }: CreateJobModalProps) {
+  const { user } = useAuth()
   const [formData, setFormData] = useState<JobPostingFormData>({
     company_name: '',
     company_email: '',
@@ -30,6 +32,18 @@ export function CreateJobModal({ isOpen, onClose, onSubmit }: CreateJobModalProp
     interview_meeting_link: '',
     application_deadline: '',
   })
+
+  // Pre-fill company info from user when modal opens
+  useEffect(() => {
+    if (isOpen && user) {
+      setFormData(prev => ({
+        ...prev,
+        company_name: user.companyName || prev.company_name,
+        company_email: user.companyEmail || prev.company_email,
+        hr_email: user.hrEmail || prev.hr_email,
+      }))
+    }
+  }, [isOpen, user])
 
   const [newSkill, setNewSkill] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -286,7 +300,7 @@ export function CreateJobModal({ isOpen, onClose, onSubmit }: CreateJobModalProp
                           onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addSkill())}
                           className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 hover:border-[#2D2DDD] focus-visible:border-white dark:focus-visible:border-white focus-visible:outline-none focus-visible:ring-0 border-focus-thin"
                         />
-                        <Button type="button" onClick={addSkill} variant="outline" className="bg-[#2D2DDD] hover:bg-[#2D2DDD]/90 text-white border-[#2D2DDD]">
+                        <Button type="button" onClick={addSkill} variant="outline" className="bg-[#2D2DDD] hover:bg-[#2D2DDD] text-white border-[#2D2DDD] shadow-none hover:shadow-none">
                           <Plus className="w-4 h-4" />
                         </Button>
                       </div>
@@ -384,7 +398,7 @@ export function CreateJobModal({ isOpen, onClose, onSubmit }: CreateJobModalProp
                     <Button 
                       type="submit" 
                       disabled={isSubmitting}
-                      className="flex items-center gap-2 bg-[#2D2DDD] hover:bg-[#2D2DDD]/90 text-white"
+                      className="flex items-center gap-2 bg-[#2D2DDD] hover:bg-[#2D2DDD] text-white shadow-none hover:shadow-none"
                     >
                       {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
                       {isSubmitting ? 'Creating Job Posting...' : 'Create Job Posting'}
@@ -437,7 +451,7 @@ export function CreateJobModal({ isOpen, onClose, onSubmit }: CreateJobModalProp
                 setWebhookStatus({ status: 'idle', message: '' })
                 setCreatedJobInfo(null)
               }}
-              className="bg-[#2D2DDD] hover:bg-[#2D2DDD]/90 text-white w-full sm:w-auto"
+              className="bg-[#2D2DDD] hover:bg-[#2D2DDD] text-white w-full sm:w-auto shadow-none hover:shadow-none"
             >
               View Job Listings
             </Button>

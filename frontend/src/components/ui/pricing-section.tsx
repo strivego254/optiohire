@@ -178,7 +178,7 @@ export default function PricingSection({ plans: customPlans }: PricingSectionPro
     setIsYearly(Number.parseInt(value) === 1);
 
   return (
-    <div className="px-4 pt-20 pb-8 sm:pb-12 md:pb-16 min-h-screen mx-auto relative bg-black" ref={pricingRef}>
+    <div className="px-4 pt-12 pb-8 sm:pt-16 sm:pb-12 md:pt-20 md:pb-16 mx-auto relative bg-black" ref={pricingRef}>
       <div
         className="absolute top-0 left-[10%] right-[10%] w-[80%] h-full z-0"
         style={{

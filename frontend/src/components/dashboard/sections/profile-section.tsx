@@ -743,7 +743,7 @@ export function ProfileSection() {
               </div>
               <Button
                 onClick={() => setShowPasswordForm(true)}
-                className="bg-[#2D2DDD] hover:bg-[#2D2DDD]/90 text-white"
+                className="bg-[#2D2DDD] hover:bg-[#2D2DDD] text-white shadow-none hover:shadow-none"
               >
                 <Key className="w-4 h-4 mr-2" />
                 Change Password
@@ -874,7 +874,7 @@ export function ProfileSection() {
                 await signOut()
                 router.push('/auth/signin')
               }}
-              className="bg-[#2D2DDD] hover:bg-[#2D2DDD]/90 text-white"
+              className="bg-[#2D2DDD] hover:bg-[#2D2DDD] text-white shadow-none hover:shadow-none"
             >
               <LogOut className="w-4 h-4 mr-2" />
               Sign Out

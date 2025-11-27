@@ -74,7 +74,7 @@ export function TopNavigation() {
                 className={cn(
                   'flex items-center gap-2 whitespace-nowrap',
                   isActive 
-                    ? 'bg-[#2D2DDD] text-white hover:bg-[#2D2DDD]/90' 
+                    ? 'bg-[#2D2DDD] text-white hover:bg-[#2D2DDD] shadow-none hover:shadow-none' 
                     : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-[#2D2DDD] dark:hover:text-white'
                 )}
               >

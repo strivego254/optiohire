@@ -75,6 +75,11 @@ export async function saveFile(filename: string, data: Buffer): Promise<string> 
   // Fallback to local storage
   await ensureStorageDir()
   const filePath = path.join(baseDir, filename)
+  
+  // Ensure the directory for the file exists (including subdirectories)
+  const dirPath = path.dirname(filePath)
+  await fs.mkdir(dirPath, { recursive: true })
+  
   await fs.writeFile(filePath, data)
   return filePath
 }

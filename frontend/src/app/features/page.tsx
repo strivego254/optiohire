@@ -82,7 +82,7 @@ export default function FeaturesPage() {
       <Animated3DShape className="opacity-20" />
 
       {/* Hero Section */}
-      <section className="relative py-20 px-4 sm:py-24 md:py-32">
+      <section className="relative pt-32 pb-20 px-4 sm:pt-40 sm:pb-24 md:pt-48 md:pb-32">
         <div className="container mx-auto max-w-6xl relative z-10">
           <motion.div
             initial={{ opacity: 1, y: 0 }}
@@ -198,7 +198,7 @@ export default function FeaturesPage() {
                 icon: TrendingUp,
                 title: '95% Accuracy',
                 description: 'AI-powered matching accuracy',
-                color: 'from-purple-500 to-pink-600',
+                color: 'from-[#2D2DDD] to-pink-600',
               },
               {
                 icon: Star,

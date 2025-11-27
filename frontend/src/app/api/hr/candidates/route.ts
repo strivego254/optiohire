@@ -10,6 +10,8 @@ type CandidateRow = {
   status: string | null
   interview_time: string | null
   interview_link: string | null
+  interview_status: string | null
+  reasoning: string | null
 }
 
 // GET /api/hr/candidates?jobId=...
@@ -35,6 +37,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Job not found' }, { status: 404 })
     }
 
+    // Check if we should filter by status (for shortlisted page)
+    const statusFilter = searchParams.get('status')
+    const statusCondition = statusFilter 
+      ? `AND ai_status = $2`
+      : ''
+    const queryParams = statusFilter ? [jobId, statusFilter] : [jobId]
+
     // Fetch candidates ordered by score DESC
     const result = await query<CandidateRow>(
       `SELECT 
@@ -44,26 +53,40 @@ export async function GET(request: NextRequest) {
         ai_score as score,
         ai_status as status,
         interview_time,
-        interview_link
+        interview_link,
+        interview_status,
+        reasoning
       FROM applications 
-      WHERE job_posting_id = $1 
+      WHERE job_posting_id = $1 ${statusCondition}
       ORDER BY ai_score DESC NULLS LAST, created_at ASC`,
-      [jobId]
+      queryParams
     )
 
     // Explicitly type the rows as CandidateRow[]
     const rows: CandidateRow[] = result.rows
 
-    // Map to response format (normalize status from enum to text)
-    const candidates = rows.map((row: CandidateRow) => ({
+    // Map to response format (normalize status from enum to text) with ranking
+    const candidates = rows.map((row: CandidateRow, index: number) => {
+      // Ensure score is a number or null
+      let score: number | null = null
+      if (row.score !== null && row.score !== undefined) {
+        const numScore = typeof row.score === 'number' ? row.score : Number(row.score)
+        score = isNaN(numScore) ? null : numScore
+      }
+      
+      return {
       id: row.id,
+        rank: index + 1,
       candidate_name: row.candidate_name || 'Unknown',
       email: row.email,
-      score: row.score ?? null,
+        score: score,
       status: row.status || 'PENDING',
       interview_time: row.interview_time,
       interview_link: row.interview_link,
-    }))
+      interview_status: row.interview_status || null,
+        reasoning: row.reasoning || null,
+      }
+    })
 
     return NextResponse.json(candidates)
   } catch (error: any) {

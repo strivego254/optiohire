@@ -194,7 +194,7 @@ export default function AdminDashboard() {
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
               Admin Dashboard
               {isSeniorAdmin && (
-                <span className="ml-3 px-3 py-1 rounded-full text-sm font-medium bg-purple-600 text-white">
+                <span className="ml-3 px-3 py-1 rounded-full text-sm font-medium bg-[#2D2DDD] text-white">
                   Senior Admin
                 </span>
               )}
@@ -269,20 +269,20 @@ export default function AdminDashboard() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
           >
-            <Card className="border-2 border-purple-200 dark:border-purple-800 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20">
+            <Card className="border-2 border-[#2D2DDD]/20 dark:border-[#2D2DDD]/30 bg-gradient-to-br from-[#2D2DDD]/5 to-[#2D2DDD]/10 dark:from-[#2D2DDD]/10 dark:to-[#2D2DDD]/20">
               <CardHeader>
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-600 to-purple-800 flex items-center justify-center">
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#2D2DDD] to-[#2D2DDD]/80 flex items-center justify-center">
                     <Crown className="w-6 h-6 text-white" />
                   </div>
                   <div>
-                    <CardTitle className="flex items-center gap-2 text-purple-900 dark:text-purple-100">
+                    <CardTitle className="flex items-center gap-2 text-[#2D2DDD] dark:text-[#2D2DDD]">
                       Admin Profile
-                      <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-200 dark:bg-purple-800 text-purple-800 dark:text-purple-200">
+                      <span className="px-2 py-1 rounded-full text-xs font-medium bg-[#2D2DDD]/20 dark:bg-[#2D2DDD]/30 text-[#2D2DDD] dark:text-[#2D2DDD]">
                         ADMIN
                       </span>
                     </CardTitle>
-                    <CardDescription className="text-purple-700 dark:text-purple-300">
+                    <CardDescription className="text-[#2D2DDD]/80 dark:text-[#2D2DDD]">
                       Your administrator account information
                     </CardDescription>
                   </div>
@@ -302,7 +302,7 @@ export default function AdminDashboard() {
                   
                   {user.username && (
                     <div className="space-y-1">
-                      <div className="flex items-center gap-2 text-sm font-medium text-purple-900 dark:text-purple-200">
+                      <div className="flex items-center gap-2 text-sm font-medium text-[#2D2DDD] dark:text-[#2D2DDD]">
                         <User className="w-4 h-4" />
                         Username
                       </div>
@@ -334,7 +334,7 @@ export default function AdminDashboard() {
                   
                   {user.companyRole && (
                     <div className="space-y-1">
-                      <div className="flex items-center gap-2 text-sm font-medium text-purple-900 dark:text-purple-200">
+                      <div className="flex items-center gap-2 text-sm font-medium text-[#2D2DDD] dark:text-[#2D2DDD]">
                         <Key className="w-4 h-4" />
                         Company Role
                       </div>
@@ -346,11 +346,11 @@ export default function AdminDashboard() {
                   
                   {user.created_at && (
                     <div className="space-y-1">
-                      <div className="flex items-center gap-2 text-sm font-medium text-purple-900 dark:text-purple-200">
+                      <div className="flex items-center gap-2 text-sm font-medium text-[#2D2DDD] dark:text-[#2D2DDD]">
                         <Calendar className="w-4 h-4" />
                         Member Since
                       </div>
-                      <p className="text-purple-800 dark:text-purple-300">
+                      <p className="text-[#2D2DDD]/90 dark:text-[#2D2DDD]">
                         {new Date(user.created_at).toLocaleDateString()}
                       </p>
                     </div>
@@ -358,11 +358,11 @@ export default function AdminDashboard() {
                   
                   {user.companyName && (
                     <div className="space-y-1">
-                      <div className="flex items-center gap-2 text-sm font-medium text-purple-900 dark:text-purple-200">
+                      <div className="flex items-center gap-2 text-sm font-medium text-[#2D2DDD] dark:text-[#2D2DDD]">
                         <Building2 className="w-4 h-4" />
                         Organization
                       </div>
-                      <p className="text-purple-800 dark:text-purple-300">
+                      <p className="text-[#2D2DDD]/90 dark:text-[#2D2DDD]">
                         {user.companyName}
                       </p>
                     </div>
@@ -370,11 +370,11 @@ export default function AdminDashboard() {
                   
                   {user.companyEmail && (
                     <div className="space-y-1">
-                      <div className="flex items-center gap-2 text-sm font-medium text-purple-900 dark:text-purple-200">
+                      <div className="flex items-center gap-2 text-sm font-medium text-[#2D2DDD] dark:text-[#2D2DDD]">
                         <Mail className="w-4 h-4" />
                         Company Email
                       </div>
-                      <p className="text-purple-800 dark:text-purple-300">
+                      <p className="text-[#2D2DDD]/90 dark:text-[#2D2DDD]">
                         {user.companyEmail}
                       </p>
                     </div>
@@ -382,11 +382,11 @@ export default function AdminDashboard() {
                   
                   {user.hrEmail && (
                     <div className="space-y-1">
-                      <div className="flex items-center gap-2 text-sm font-medium text-purple-900 dark:text-purple-200">
+                      <div className="flex items-center gap-2 text-sm font-medium text-[#2D2DDD] dark:text-[#2D2DDD]">
                         <Mail className="w-4 h-4" />
                         HR Email
                       </div>
-                      <p className="text-purple-800 dark:text-purple-300">
+                      <p className="text-[#2D2DDD]/90 dark:text-[#2D2DDD]">
                         {user.hrEmail}
                       </p>
                     </div>
@@ -394,11 +394,11 @@ export default function AdminDashboard() {
                   
                   {user.hiringManagerEmail && (
                     <div className="space-y-1">
-                      <div className="flex items-center gap-2 text-sm font-medium text-purple-900 dark:text-purple-200">
+                      <div className="flex items-center gap-2 text-sm font-medium text-[#2D2DDD] dark:text-[#2D2DDD]">
                         <Mail className="w-4 h-4" />
                         Hiring Manager Email
                       </div>
-                      <p className="text-purple-800 dark:text-purple-300">
+                      <p className="text-[#2D2DDD]/90 dark:text-[#2D2DDD]">
                         {user.hiringManagerEmail}
                       </p>
                     </div>
@@ -472,7 +472,7 @@ export default function AdminDashboard() {
                           </span>
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                             user.role === 'admin'
-                              ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
+                              ? 'bg-[#2D2DDD]/10 text-[#2D2DDD] dark:bg-[#2D2DDD]/20 dark:text-[#2D2DDD]'
                               : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
                           }`}>
                             {user.role}

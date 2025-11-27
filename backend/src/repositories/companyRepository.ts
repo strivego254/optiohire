@@ -22,14 +22,37 @@ export class CompanyRepository {
   }
 
   async findByName(name: string): Promise<Company | null> {
-    const { rows } = await query<Company>(
+    // Try exact match first
+    const { rows: exactRows } = await query<Company>(
       `SELECT company_id, company_name, company_email, company_domain, hr_email, created_at
        FROM companies
        WHERE company_name = $1
        LIMIT 1`,
       [name]
     )
-    return rows[0] || null
+    if (exactRows[0]) return exactRows[0]
+
+    // Try case-insensitive match
+    const { rows: caseRows } = await query<Company>(
+      `SELECT company_id, company_name, company_email, company_domain, hr_email, created_at
+       FROM companies
+       WHERE LOWER(company_name) = LOWER($1)
+       LIMIT 1`,
+      [name]
+    )
+    if (caseRows[0]) return caseRows[0]
+
+    // Try partial match (contains)
+    const { rows: partialRows } = await query<Company>(
+      `SELECT company_id, company_name, company_email, company_domain, hr_email, created_at
+       FROM companies
+       WHERE LOWER(company_name) LIKE LOWER($1)
+       LIMIT 1`,
+      [`%${name}%`]
+    )
+    if (partialRows[0]) return partialRows[0]
+
+    return null
   }
 
   async create(data: {

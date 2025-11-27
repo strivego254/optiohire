@@ -5,6 +5,22 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+/**
+ * Cleans candidate name by removing quotes and email address
+ * Example: '"fidelochieng ogola" <fidelochiengogola@gmail.com>' -> 'fidelochieng ogola'
+ */
+export function cleanCandidateName(name: string | null | undefined): string {
+  if (!name) return 'Unknown'
+  
+  // Remove email part if present (everything after <)
+  let cleaned = name.split('<')[0].trim()
+  
+  // Remove quotes from beginning and end
+  cleaned = cleaned.replace(/^["']|["']$/g, '').trim()
+  
+  return cleaned || 'Unknown'
+}
+
 export function formatDate(date: Date | string | null | undefined): string {
   if (!date) return 'Not set'
   const dateObj = typeof date === 'string' ? new Date(date) : date

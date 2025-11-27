@@ -135,7 +135,7 @@ export default function ContactPage() {
 
   return (
     <main className="min-h-screen bg-black text-white">
-      <section className="relative overflow-hidden py-20 sm:py-24 md:py-28 px-4">
+      <section className="relative overflow-hidden pt-32 pb-20 px-4 sm:pt-40 sm:pb-24 md:pt-48 md:pb-28">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,#2D2DDD33,transparent_70%)]" aria-hidden="true" />
         <div className="container mx-auto max-w-6xl relative z-10 text-center space-y-6">
           <motion.span
@@ -356,13 +356,13 @@ export default function ContactPage() {
 
             <div className="mt-8 space-y-3">
               <p className="text-sm font-figtree font-medium text-white/80">Prefer a direct line?</p>
-              <div className="flex flex-col gap-3 sm:flex-row">
+              <div className="flex flex-col gap-3">
                 <a
-                  href="mailto:strivego4@gmail.com"
+                  href="mailto:hirebitapplications@gmail.com"
                   className="inline-flex items-center justify-center gap-2 rounded-full border border-white/25 bg-white/10 px-5 py-2.5 text-sm font-figtree font-medium text-white hover:bg-white/20"
                 >
                   <Mail className="h-4 w-4" />
-                  strivego4@gmail.com
+                  hirebitapplications@gmail.com
                 </a>
                 <a
                   href="tel:+254701601126"

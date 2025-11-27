@@ -328,7 +328,7 @@ export default function UserDetailsPage() {
               </CardHeader>
               <CardContent>
                 <div className="flex items-center gap-3">
-                  <Calendar className="w-8 h-8 text-purple-600" />
+                  <Calendar className="w-8 h-8 text-[#2D2DDD]" />
                   <div>
                     <div className="text-2xl font-bold text-gray-900 dark:text-white">
                       {userDetails.stats.interviews_count}

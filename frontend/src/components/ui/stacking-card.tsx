@@ -61,7 +61,7 @@ export const Card = ({
         }}
         className={`flex flex-col relative -top-[15%] lg:-top-[18%] h-[580px] lg:h-[680px] w-[80%] lg:w-[85%] rounded-[25px] p-10 origin-top`}
       >
-                <h2 className='text-[17px] sm:text-[21px] text-center font-semibold font-figtree text-white mb-6'>{title}</h2>
+                <h2 className='text-[15px] sm:text-[20px] md:text-[24px] text-center font-semibold font-figtree text-white mb-6'>{title}</h2>
         <div className={`flex h-full mt-5 gap-10`}>
           <div className={`w-[40%] relative top-[10%] flex flex-col`}>
             <div>
@@ -72,7 +72,7 @@ export const Card = ({
                   </div>
                 </div>
               )}
-              <p className='text-sm sm:text-base text-white/90 font-figtree font-semibold leading-relaxed mb-6'>{description}</p>
+              <p className='text-xs sm:text-sm md:text-base text-white/90 font-figtree font-semibold leading-relaxed mb-6'>{description}</p>
             </div>
             {value && (
               <div className='mt-4'>

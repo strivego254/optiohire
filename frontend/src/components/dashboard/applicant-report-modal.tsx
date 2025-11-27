@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Applicant, JobPosting } from '@/types'
+import { cleanCandidateName } from '@/lib/utils'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
@@ -29,15 +30,37 @@ export function ApplicantReportModal({ isOpen, onClose, jobPosting }: ApplicantR
     setError(null)
 
     try {
-      const resp = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/jobs/${jobPosting.id}/applicants`, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' }
-      })
-      const json = await resp.json().catch(() => ({}))
-      if (!resp.ok) {
-        throw new Error(json?.error || 'Failed to load applicants')
+      const token = localStorage.getItem('token')
+      if (!token) {
+        throw new Error('Not authenticated')
       }
-      setApplicants(json?.applicants || [])
+
+      const resp = await fetch(`/api/hr/candidates?jobId=${jobPosting.id}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (!resp.ok) {
+        const errorData = await resp.json().catch(() => ({}))
+        throw new Error(errorData?.error || 'Failed to load applicants')
+      }
+
+      const candidates = await resp.json()
+      
+      // Map candidates to applicants format
+      const mappedApplicants = candidates.map((candidate: any) => ({
+        id: candidate.id,
+        name: cleanCandidateName(candidate.candidate_name),
+        email: candidate.email,
+        matching_score: candidate.score,
+        ai_reasoning: candidate.reasoning || null,
+        status: candidate.status || 'PENDING'
+      }))
+      
+      setApplicants(mappedApplicants)
     } catch (err: any) {
       console.error('Error loading applicants:', err)
       setError(err.message || 'Failed to load applicants')
@@ -58,11 +81,14 @@ export function ApplicantReportModal({ isOpen, onClose, jobPosting }: ApplicantR
   const getStatusBadgeVariant = (status: string) => {
     switch (status.toLowerCase()) {
       case 'shortlisted':
-        return 'success'
+      case 'shortlist':
+        return 'shortlisted'
       case 'flagged':
-        return 'warning'
+      case 'flag':
+        return 'flagged'
       case 'rejected':
-        return 'destructive'
+      case 'reject':
+        return 'rejected'
       default:
         return 'outline'
     }
@@ -175,7 +201,7 @@ export function ApplicantReportModal({ isOpen, onClose, jobPosting }: ApplicantR
                     <Button
                       onClick={downloadPDF}
                       disabled={isDownloading || applicants.length === 0}
-                      className="bg-[#2D2DDD] hover:bg-[#2D2DDD]/90 text-white"
+                      className="bg-[#2D2DDD] hover:bg-[#2D2DDD] text-white shadow-none hover:shadow-none"
                       size="sm"
                     >
                       {isDownloading ? (
@@ -218,7 +244,7 @@ export function ApplicantReportModal({ isOpen, onClose, jobPosting }: ApplicantR
                     <Button
                       onClick={loadApplicants}
                       variant="outline"
-                      className="mt-4"
+                      className="mt-4 bg-white text-[#2D2DDD] border-[#2D2DDD] hover:bg-[#2D2DDD] hover:text-white shadow-none hover:shadow-none"
                       size="sm"
                     >
                       Retry

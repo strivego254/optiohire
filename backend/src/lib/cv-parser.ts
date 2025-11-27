@@ -1,7 +1,14 @@
-import pdfParse from 'pdf-parse'
 import mammoth from 'mammoth'
 import fs from 'fs/promises'
 import path from 'path'
+import { createRequire } from 'module'
+import { fileURLToPath } from 'url'
+
+// pdf-parse v2 uses a class-based API
+// Use fileURLToPath for better compatibility with tsx
+const __filename = fileURLToPath(import.meta.url)
+const require = createRequire(__filename)
+const { PDFParse } = require('pdf-parse')
 
 export interface ParsedCV {
   textContent: string
@@ -28,7 +35,8 @@ export class CVParser {
     try {
       if (ext === '.pdf') {
         const buffer = await fs.readFile(filePath)
-        const pdfData = await pdfParse(buffer)
+        const parser = new PDFParse({ data: buffer })
+        const pdfData = await parser.getText()
         textContent = pdfData.text
       } else if (ext === '.docx' || ext === '.doc') {
         const buffer = await fs.readFile(filePath)
@@ -60,7 +68,8 @@ export class CVParser {
 
     try {
       if (mimeType === 'application/pdf') {
-        const pdfData = await pdfParse(buffer)
+        const parser = new PDFParse({ data: buffer })
+        const pdfData = await parser.getText()
         textContent = pdfData.text
       } else if (mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || 
                  mimeType === 'application/msword') {
@@ -78,7 +87,8 @@ export class CVParser {
       } else {
         // Try PDF as fallback
         try {
-          const pdfData = await pdfParse(buffer)
+          const parser = new PDFParse({ data: buffer })
+          const pdfData = await parser.getText()
           textContent = pdfData.text
         } catch {
           textContent = buffer.toString('utf-8')

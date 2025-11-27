@@ -44,21 +44,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         // Try to decode token to get basic user info
         const payload = JSON.parse(atob(token.split('.')[1]))
+        
+        // Check token expiration
+        const now = Math.floor(Date.now() / 1000)
+        if (payload.exp && payload.exp < now) {
+          // Token expired
+          console.log('Token expired')
+          localStorage.removeItem('token')
+          setUser(null)
+          setLoading(false)
+          return
+        }
+        
         if (payload.sub && payload.email) {
-          // Set basic user info immediately
-          setUser({
+          // Set basic user info immediately (non-blocking) for fast UI
+          // Include role from token if available
+          const basicUser = {
             email: payload.email,
-            id: payload.sub
-          })
+            id: payload.sub,
+            role: payload.role || undefined
+          }
+          setUser(basicUser)
+          
+          // Set loading to false immediately so UI can render
+          setLoading(false)
+          
+          // Store basic user as fallback in case API call fails
+          let fallbackUser = basicUser
 
-          // Fetch full user profile from backend
+          // Fetch full user profile from backend in background (non-blocking)
+          // Use AbortController for timeout
+          const controller = new AbortController()
+          const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout
+          
+          try {
           const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'
           const resp = await fetch(`${backendUrl}/api/user/me`, {
             headers: {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'
-            }
+              },
+              signal: controller.signal
           })
+
+            clearTimeout(timeoutId)
 
           if (resp.ok) {
             const userData = await resp.json()
@@ -85,18 +114,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               setUser(null)
               // Redirect will be handled by dashboard guard
             }
-          } else if (resp.status === 401 || resp.status === 403) {
-            // Token invalid or access denied, remove it
+            } else if (resp.status === 401) {
+              // Token invalid - clear it
+              console.log('Token invalid (401), clearing')
             localStorage.removeItem('token')
             setUser(null)
+            } else if (resp.status === 403) {
+              // Access denied but token might be valid - keep basic user info
+              console.warn('Access denied (403) but keeping user session with basic info')
+              // Keep the basic user info from token
+              setUser(fallbackUser)
+            } else {
+              // Other error (500, etc.) - keep user logged in with basic info
+              console.error('Error fetching user profile:', resp.status, 'keeping basic user info')
+              setUser(fallbackUser)
+            }
+          } catch (fetchError: any) {
+            clearTimeout(timeoutId)
+            // If it's an abort (timeout) or network error, keep the basic user info
+            if (fetchError.name === 'AbortError') {
+              console.warn('User profile fetch timed out, using basic info from token')
+            } else {
+              console.error('Error fetching user profile:', fetchError, 'keeping basic user info')
+            }
+            // Always keep the basic user info from token on network errors
+            setUser(fallbackUser)
           }
+        } else {
+          // Invalid token payload
+          console.log('Invalid token payload')
+          localStorage.removeItem('token')
+          setUser(null)
+          setLoading(false)
         }
       } catch (e) {
-        // Invalid token, remove it
-        console.error('Error loading user profile:', e)
+        // Invalid token format, remove it
+        console.error('Error decoding token:', e)
         localStorage.removeItem('token')
         setUser(null)
-      } finally {
         setLoading(false)
       }
     }
@@ -161,8 +216,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signIn = async (email: string, password: string) => {
     try {
       setLoading(true)
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'
-      const resp = await fetch(`${backendUrl}/auth/signin`, {
+      // Use Next.js API route instead of external backend
+      const resp = await fetch('/api/auth/signin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
@@ -174,15 +229,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (data?.token) {
         localStorage.setItem('token', data.token)
         setUser({ 
+          username: data?.user?.username || null,
+          name: data?.user?.name || null,
           email: email.toLowerCase(),
           id: data?.user?.id || data?.user?.user_id, // Support both formats
           created_at: data?.user?.created_at,
           role: data?.user?.role,
+          companyRole: data?.user?.company_role || null,
           hasCompany: data?.user?.hasCompany ?? false,
           companyId: data?.user?.companyId || null,
           companyName: data?.user?.companyName || null,
           companyEmail: data?.user?.companyEmail || null,
-          hrEmail: data?.user?.hrEmail || null
+          hrEmail: data?.user?.hrEmail || null,
+          hiringManagerEmail: data?.user?.hiringManagerEmail || null
         })
         
         // STRICT: If user has no company and is not admin, deny access immediately

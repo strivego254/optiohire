@@ -1,4 +1,5 @@
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import Groq from 'groq-sdk'
+import { logger } from '../utils/logger.js'
 
 export interface ScoringResult {
   score: number // 0-100
@@ -12,70 +13,152 @@ export interface ScoringInput {
     description: string
     required_skills: string[]
   }
+  company: {
+    company_name: string
+    company_domain?: string | null
+    company_email?: string | null
+    hr_email?: string | null
+    hiring_manager_email?: string | null
+    settings?: any // jsonb settings
+  }
   cvText: string
 }
 
 export class AIScoringEngine {
-  private genAI: GoogleGenerativeAI | null = null
-  private useGemini: boolean = false
+  private groqClient: Groq | null = null
+  private useGroq: boolean = false
 
   constructor() {
-    // Use Gemini only - with key rotation/fallback
-    const geminiKey = this.getGeminiApiKey()
-    
-    if (geminiKey) {
-      this.genAI = new GoogleGenerativeAI(geminiKey)
-      this.useGemini = true
+    // Initialize Groq
+    const groqKey = this.getGroqApiKey()
+    if (groqKey) {
+      this.groqClient = new Groq({ apiKey: groqKey })
+      this.useGroq = true
+      logger.info('Groq API initialized successfully for AI scoring')
     } else {
-      this.useGemini = false
+      this.useGroq = false
+      logger.warn('No Groq API key found, will use fallback rule-based scoring')
     }
   }
 
   /**
-   * Get Gemini API key with rotation/fallback support
-   * Tries: GEMINI_API_KEY -> GEMINI_API_KEY_002 -> GEMINI_API_KEY_003
+   * Get Groq API key
    */
-  private getGeminiApiKey(): string | null {
-    return process.env.GEMINI_API_KEY 
-      || process.env.GEMINI_API_KEY_002 
-      || process.env.GEMINI_API_KEY_003 
-      || null
+  private getGroqApiKey(): string | null {
+    return process.env.GROQ_API_KEY || null
+  }
+
+  /**
+   * Build comprehensive system instruction with company context
+   * Based on production AI recruitment assistant framework with 35+ years domain knowledge
+   */
+  private buildSystemInstruction(input: ScoringInput): string {
+    const company = input.company
+    const companyContext = company.company_name 
+      ? `You are an expert AI recruitment assistant with 35+ years of domain knowledge in candidate evaluation, talent acquisition, and fair hiring practices. You are working for ${company.company_name}${company.company_domain ? ` (${company.company_domain})` : ''}. `
+      : 'You are an expert AI recruitment assistant with 35+ years of domain knowledge in candidate evaluation, talent acquisition, and fair hiring practices. '
+    
+    return `${companyContext}Your role is to provide objective, comprehensive candidate assessments that support data-driven hiring decisions while ensuring fairness, consistency, and compliance.
+
+COMPANY CONTEXT:
+- Company Name: ${company.company_name || 'Not specified'}
+${company.company_domain ? `- Company Domain: ${company.company_domain}` : ''}
+${company.company_email ? `- Company Email: ${company.company_email}` : ''}
+
+PRIMARY OBJECTIVES:
+1. Evaluate each candidate's qualifications against specific job requirements (description, title, required skills)
+2. Provide actionable recommendations (SHORTLIST, FLAGGED, REJECTED) with clear reasoning
+3. Identify both obvious matches and hidden potential through transferable skills analysis
+4. Flag edge cases for human review rather than making uncertain rejections
+5. Maintain fairness by focusing solely on job-relevant qualifications
+
+SCORING FRAMEWORK (0-100 Points):
+- MUST-HAVE REQUIREMENTS (~60 points): Core technical skills, experience level, education/certifications
+- NICE-TO-HAVE REQUIREMENTS (~25 points): Preferred skills, bonus certifications, industry experience
+- OVERALL FIT (~15 points): Career trajectory, cultural alignment, communication quality
+
+CATEGORIZATION:
+- SHORTLIST (80-100): Meets 100% of must-haves, ≥50% nice-to-haves, clear progression, strong communication
+- FLAGGED (50-79): Meets ≥79% of must-haves with compensating strengths, transferable skills, addressable gaps, borderline scores
+- REJECTED (0-49): Missing multiple critical must-haves, significant misalignment, lacks foundational skills, irrelevant application
+
+FAIRNESS & BIAS MITIGATION:
+- Focus exclusively on job-relevant qualifications (ignore name, age indicators, education prestige, location, pictures)
+- Value diverse paths: career changers, self-taught developers, bootcamp graduates, alternative credentials
+- Don't penalize employment gaps <12 months or those explained by caregiving, education, health, layoffs
+- Consider skills-based equivalents: 5 years hands-on experience may equal a formal degree
+- Recognize cultural differences in resume formats and communication styles
+
+MODERN HIRING REALITIES (2025):
+- Remote work normalization: Geographic location often irrelevant; focus on skills
+- AI-assisted applications: Distinguish between AI enhancement (good) vs. generic AI generation (red flag)
+- Skills-based hiring: Prioritize demonstrable skills over credentials where appropriate
+- Continuous learning: Value recent upskilling more than outdated degrees
+- Portfolio over pedigree: Strong GitHub/portfolio may outweigh prestigious education
+
+RED FLAGS (Auto-flag for human review):
+- Employment gaps >12 months without explanation
+- 3+ jobs in 24 months without clear progression (unless contract work)
+- Declining responsibility over time
+- Inconsistent timelines or conflicting information
+- Generic, unmodified template applications
+- Exaggerated claims unsupported by context
+- AI-generated content with zero personalization
+- Overqualification by 5+ years for role level
+- Missing critical information (no contact details, vague dates)
+
+QUALITY INDICATORS (Enhance scores):
+- Specific, quantifiable achievements with metrics (%, $, scale)
+- Clear career progression with strategic moves
+- Continuous learning (certifications, courses, self-study)
+- Personalized application showing company/role research
+- Relevant side projects, open-source contributions, portfolio
+- Leadership examples and initiative-taking
+- Problem-solving demonstrations with context and outcome
+
+SPECIAL CASES:
+- Career Changers: Focus on transferable skills, recent training, project work, motivation
+- Recent Graduates (<2 years): Weight coursework, internships, academic projects, GPA if >3.5
+- Senior/Executive: Prioritize strategic thinking, business impact, leadership scope
+- Overqualified: Auto-flag if experience exceeds role by 5+ years; assess motivation and retention risk
+
+CORE PRINCIPLES:
+- When uncertain, flag for review - false negatives (rejecting good candidates) are worse than false positives
+- Default to generosity - if candidate is 60/40 good fit, round up and flag for review
+- Be thorough but concise - reasoning should be 3-4 sentences (50-100 words), hitting key points
+- Output valid JSON only - no additional text outside JSON structure
+- Objectivity above all - consistent, accurate, concise, unbiased analysis
+
+Remember: You are evaluating candidates for ${company.company_name || 'this company'}. Your goal is to identify talent fairly and accurately while ensuring no strong candidate slips through due to rigid criteria.`
   }
 
   /**
    * Score a candidate using AI
-   * Input: { job: { title, description, required_skills }, cvText }
+   * Input: { job: { title, description, required_skills }, company: { company_name, ... }, cvText }
    * Output: { score: 0-100, status: "SHORTLIST" | "FLAGGED" | "REJECTED", reasoning: string }
    */
   async scoreCandidate(input: ScoringInput): Promise<ScoringResult> {
-    const model = process.env.SCORING_MODEL || 'gemini-1.5-flash'
+    const groqModelName = process.env.SCORING_MODEL || process.env.SCORING_GROQ_MODEL || 'llama-3.3-70b-versatile'
 
-    if (!this.genAI && !this.useGemini) {
-      // Fallback to rule-based scoring
-      return this.fallbackScoring(input)
-    }
-
-    try {
-      const prompt = this.buildScoringPrompt(input)
-      
-      if (this.useGemini && this.genAI) {
-        // Use Gemini
-        const geminiModel = this.genAI.getGenerativeModel({ 
-          model: model.includes('gemini') ? model : 'gemini-1.5-flash' 
+    // Use Groq for scoring
+    if (this.useGroq && this.groqClient) {
+      try {
+        logger.info(`Using Groq model ${groqModelName} for scoring`)
+        const prompt = this.buildScoringPrompt(input)
+        const systemInstruction = this.buildSystemInstruction(input)
+        
+        const completion = await this.groqClient.chat.completions.create({
+          messages: [
+            { role: 'system', content: systemInstruction },
+            { role: 'user', content: prompt }
+          ],
+          model: groqModelName,
+          temperature: 0.7,
+          response_format: { type: 'json_object' }
         })
         
-        const systemInstruction = 'You are an expert HR recruiter. Analyze candidates objectively based ONLY on skills, experience, and job relevance. NO discrimination on gender, ethnicity, age, religion, or location. Base score purely on skills, experience, and relevance. Always return valid JSON.'
-        
-        const fullPrompt = `${systemInstruction}\n\n${prompt}`
-        
-        const result = await geminiModel.generateContent(fullPrompt)
-        const response = await result.response
-        const content = response.text() || '{}'
-        
-        // Extract JSON from response (Gemini might wrap it in markdown)
-        const jsonMatch = content.match(/\{[\s\S]*\}/)
-        const jsonContent = jsonMatch ? jsonMatch[0] : content
-        const parsed = JSON.parse(jsonContent) as { score: number; status: string; reasoning: string }
+        const content = completion.choices[0]?.message?.content || '{}'
+        const parsed = JSON.parse(content) as { score: number; status: string; reasoning: string }
 
         // Validate and normalize
         const score = Math.max(0, Math.min(100, Math.round(parsed.score)))
@@ -86,106 +169,114 @@ export class AIScoringEngine {
         else if (score >= 50) status = 'FLAGGED'
         else status = 'REJECTED'
 
+        logger.info(`Scoring successful with Groq ${groqModelName}, score: ${score}, status: ${status}`)
         return {
           score,
           status,
           reasoning: parsed.reasoning || 'No reasoning provided'
         }
-      } else {
-        // Fallback to rule-based
-        return this.fallbackScoring(input)
-      }
-    } catch (error) {
-      console.error('AI scoring failed, retrying with fallback:', error)
-      // Retry once with simpler prompt
-      try {
-        return await this.retryScoring(input)
-      } catch (retryError) {
-        return this.fallbackScoring(input)
+      } catch (error: any) {
+        logger.error(`Groq scoring failed: ${error?.message || String(error)}, falling back to rule-based scoring`)
       }
     }
+
+    // Fallback to rule-based scoring
+    logger.warn('Groq API not available, using rule-based fallback scoring')
+    return this.fallbackScoring(input)
   }
 
   private buildScoringPrompt(input: ScoringInput): string {
-    const cvText = input.cvText.substring(0, 4000) // Limit to prevent token overflow
+    // Extract FULL CV text - Groq models support large context windows
+    // Using 50,000 characters as a safe limit (approximately 12,500 tokens) to leave room for prompt
+    const maxCvLength = 50000
+    const cvText = input.cvText.length > maxCvLength 
+      ? input.cvText.substring(0, maxCvLength) 
+      : input.cvText
+    const isTruncated = input.cvText.length > maxCvLength
     
-    return `Analyze this candidate for the job position objectively.
+    const company = input.company
+    
+    return `Evaluate this candidate for ${company.company_name || 'the company'} using the comprehensive framework provided.
 
-JOB TITLE:
-${input.job.title}
+JOB DETAILS:
+- Job Title: ${input.job.title}
+- Job Description: ${input.job.description}
+- Required Skills: ${input.job.required_skills.join(', ')}
 
-JOB DESCRIPTION:
-${input.job.description}
+CANDIDATE CV TEXT (${isTruncated ? `First ${maxCvLength.toLocaleString()} characters - CV was truncated` : 'Complete CV'}):
+${cvText}${isTruncated ? `\n\n[Note: CV text was truncated at ${maxCvLength.toLocaleString()} characters. Analyze based on the content provided above.]` : ''}
 
-REQUIRED SKILLS:
-${input.job.required_skills.join(', ')}
+EVALUATION METHODOLOGY:
 
-CANDIDATE CV TEXT:
-${cvText}${input.cvText.length > 4000 ? '...' : ''}
+STEP 1: INFORMATION EXTRACTION
+Extract and structure from the CV:
+- Full name, contact information (email, phone)
+- Current role, company, employment dates
+- Total years of relevant experience (calculate precisely from dates)
+- Education (degrees, institutions, graduation years)
+- Technical skills with proficiency indicators
+- Certifications with issue/expiry dates
+- Quantifiable achievements (metrics, impact, scope)
+- Career progression pattern and trajectory
 
-INSTRUCTIONS:
-1. Analyze the job description and extract key requirements
-2. Extract candidate skills from the CV text
-3. Compare skill match between required skills and candidate skills
-4. Score based on objective criteria: skill match, experience relevance, education alignment
-5. NO discrimination: Do NOT consider gender, ethnicity, age, religion, or location
-6. Base score purely on: skills, experience, relevance to job requirements
+STEP 2: REQUIREMENT MATCHING
+- Hard Skills: Match technical skills against required/preferred lists, assess proficiency levels, consider recency (skills unused 8+ years may be outdated)
+- Experience: Calculate relevant experience (not just total years), assess complexity and scope of past roles, evaluate industry relevance and transferability
+- Soft Skills: Infer from achievements (leadership, collaboration, problem-solving), assess communication through application quality, look for indicators in project descriptions
 
-Return JSON with this EXACT structure:
+STEP 3: GAP ANALYSIS
+Identify:
+- Critical gaps: Missing must-have skills that cannot be easily trained
+- Bridgeable gaps: Missing skills that are learnable or have transferable equivalents
+- Overqualification risks: 5+ years of experience beyond role requirements
+- Transferable strengths: Adjacent skills from different contexts
+- Growth trajectory: Evidence of continuous learning and skill acquisition
+
+STEP 4: SCORE CALCULATION (0-100)
+Apply the scoring framework:
+- MUST-HAVE REQUIREMENTS (~60 points): Core technical skills match, experience level alignment, education/certifications
+- NICE-TO-HAVE REQUIREMENTS (~25 points): Preferred skills present, bonus certifications, industry experience
+- OVERALL FIT (~15 points): Career trajectory, cultural alignment, communication quality
+
+STEP 5: CATEGORIZATION
+- SHORTLIST (80-100): Meets 100% of must-haves, ≥50% nice-to-haves, clear progression, strong communication
+- FLAGGED (50-79): Meets ≥79% of must-haves with compensating strengths, transferable skills, addressable gaps, borderline scores
+- REJECTED (0-49): Missing multiple critical must-haves, significant misalignment, lacks foundational skills, irrelevant application
+
+REASONING GUIDELINES:
+Your reasoning must be:
+- SPECIFIC: Mention 2-3 strongest matches and 1-2 key gaps with concrete examples from the CV
+- ACCURATE: Reference actual qualifications, skills, years of experience, projects, or achievements
+- CONCISE: Keep to 3-4 sentences (50-100 words), straight to the point
+- HUMAN-LIKE: Write as if explaining to a colleague, not a robot
+- Avoid generic statements; use concrete examples from the CV
+
+EXAMPLE OF GOOD REASONING:
+"The candidate demonstrates strong alignment with 7 out of 9 required skills for ${company.company_name || 'this role'}, including JavaScript, React, Node.js, and PostgreSQL. They have 3 years of full-stack development experience at TechCorp, where they built a customer portal using React and Node.js - directly relevant to the role. Their Bachelor's in Computer Science aligns well. However, they lack experience with Docker and AWS, which are listed as required. Their GitHub portfolio shows 5 active projects, indicating strong initiative. Overall, this is a solid candidate who meets most requirements but would need training on containerization and cloud platforms."
+
+EXAMPLE OF BAD REASONING (DO NOT DO THIS):
+"Partial match with 7/9 required skills. May need additional review."
+
+OUTPUT FORMAT:
+Return ONLY valid JSON in this EXACT format (no markdown, no code blocks):
 {
   "score": <number 0-100>,
   "status": "SHORTLIST" | "FLAGGED" | "REJECTED",
-  "reasoning": "<transparent explanation of why this score and status, list specific skills matched, experience relevance>"
+  "reasoning": "<Your concise, specific reasoning - 3-4 sentences (50-100 words), mention specific skills, experience, and examples from the CV>"
 }
 
-MANDATORY SCORING RULES:
-- 80-100 → SHORTLIST (strong match, meets most requirements)
-- 50-79 → FLAGGED (partial match, needs review)
-- <50 → REJECTED (poor match, doesn't meet requirements)
+QUALITY ASSURANCE:
+Before finalizing, verify:
+- Score calculation is accurate based on the framework
+- Status matches score range (80-100: SHORTLIST, 50-79: FLAGGED, 0-49: REJECTED)
+- Reasoning cites specific qualifications from the candidate's CV
+- All red flags identified are mentioned or accounted for
+- JSON structure is valid and complete
+- Any borderline cases (±5 points from threshold) are flagged for review
 
-Consider ONLY: skill match percentage, years of relevant experience, education relevance, overall job fit.`
+Remember: When uncertain, flag for review. Default to generosity - if a candidate is 60/40 good fit, round up and flag for review.`
   }
 
-  /**
-   * Retry scoring with simpler prompt if initial attempt fails
-   */
-  private async retryScoring(input: ScoringInput): Promise<ScoringResult> {
-    if (!this.genAI || !this.useGemini) {
-      return this.fallbackScoring(input)
-    }
-
-    const simplePrompt = `Job: ${input.job.title}
-Required Skills: ${input.job.required_skills.join(', ')}
-CV: ${input.cvText.substring(0, 2000)}
-
-Score 0-100 based on skill match. Return JSON: {"score": number, "status": "SHORTLIST"|"FLAGGED"|"REJECTED", "reasoning": "string"}`
-
-    try {
-      const geminiModel = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
-      const result = await geminiModel.generateContent(`Return valid JSON only. Score objectively based on skills.\n\n${simplePrompt}`)
-      const response = await result.response
-      const content = response.text() || '{}'
-      
-      const jsonMatch = content.match(/\{[\s\S]*\}/)
-      const jsonContent = jsonMatch ? jsonMatch[0] : content
-      const parsed = JSON.parse(jsonContent) as { score: number; status: string; reasoning: string }
-      
-      const score = Math.max(0, Math.min(100, Math.round(parsed.score)))
-      let status: 'SHORTLIST' | 'FLAGGED' | 'REJECTED' = 'REJECTED'
-      
-      if (score >= 80) status = 'SHORTLIST'
-      else if (score >= 50) status = 'FLAGGED'
-      else status = 'REJECTED'
-
-      return {
-        score,
-        status,
-        reasoning: parsed.reasoning || 'Scored based on skill match'
-      }
-    } catch (error) {
-      return this.fallbackScoring(input)
-    }
-  }
 
   private fallbackScoring(input: ScoringInput): ScoringResult {
     const cvText = input.cvText.toLowerCase()

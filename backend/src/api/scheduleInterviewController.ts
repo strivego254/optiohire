@@ -8,13 +8,22 @@ import { z } from 'zod'
 
 const scheduleSchema = z.object({
   applicantId: z.string().uuid(),
-  interviewTime: z.string().datetime()
+  interviewTime: z.string().refine((val) => {
+    // Accept ISO datetime strings or any valid date string
+    const date = new Date(val)
+    return !isNaN(date.getTime())
+  }, {
+    message: 'Invalid date format. Expected ISO datetime string.'
+  })
 })
 
 export async function scheduleInterview(req: Request, res: Response) {
   try {
+    logger.info('Schedule interview request received:', { body: req.body })
+    
     const validation = scheduleSchema.safeParse(req.body)
     if (!validation.success) {
+      logger.warn('Invalid schedule interview request:', validation.error.errors)
       return res.status(400).json({
         error: 'Invalid request body',
         details: validation.error.errors
@@ -22,6 +31,7 @@ export async function scheduleInterview(req: Request, res: Response) {
     }
 
     const { applicantId, interviewTime } = validation.data
+    logger.info('Processing interview schedule:', { applicantId, interviewTime })
 
     const applicationRepo = new ApplicationRepository()
     const jobPostingRepo = new JobPostingRepository()

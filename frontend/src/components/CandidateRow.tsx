@@ -2,7 +2,7 @@
 
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { cn } from '@/lib/utils'
+import { cn, cleanCandidateName } from '@/lib/utils'
 
 export interface Candidate {
   id: string
@@ -12,6 +12,7 @@ export interface Candidate {
   status: string
   interview_time: string | null
   interview_link: string | null
+  interview_status?: string | null
 }
 
 interface CandidateRowProps {
@@ -25,13 +26,13 @@ export function CandidateRow({ candidate, onScheduleClick, onRowClick }: Candida
     switch (status.toUpperCase()) {
       case 'SHORTLIST':
       case 'SHORTLISTED':
-        return 'success'
+        return 'shortlisted'
       case 'FLAG':
       case 'FLAGGED':
-        return 'warning'
+        return 'flagged'
       case 'REJECT':
       case 'REJECTED':
-        return 'destructive'
+        return 'rejected'
       default:
         return 'info'
     }
@@ -49,7 +50,7 @@ export function CandidateRow({ candidate, onScheduleClick, onRowClick }: Candida
     >
       <div className="col-span-4">
         <div className="font-semibold text-gray-900 dark:text-white">
-          {candidate.candidate_name}
+          {cleanCandidateName(candidate.candidate_name)}
         </div>
         <div className="text-sm text-gray-500 dark:text-gray-400">
           {candidate.email}

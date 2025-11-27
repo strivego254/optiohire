@@ -48,7 +48,7 @@ export function JobDetailsModal({ isOpen, onClose, jobPosting, onEdit }: JobDeta
                     variant="ghost"
                     size="sm"
                     onClick={onClose}
-                    className="h-8 w-8 p-0 bg-[#2D2DDD] hover:bg-[#2D2DDD]/90"
+                    className="h-8 w-8 p-0 bg-[#2D2DDD] hover:bg-[#2D2DDD] shadow-none hover:shadow-none"
                   >
                     <X className="h-4 w-4 text-white" />
                   </Button>
@@ -63,17 +63,22 @@ export function JobDetailsModal({ isOpen, onClose, jobPosting, onEdit }: JobDeta
                       {jobPosting.job_title}
                     </h1>
                     <Badge 
-                      variant={jobPosting.status === 'active' ? 'success' : jobPosting.status === 'paused' ? 'warning' : 'destructive'}
+                      variant={
+                        jobPosting.status?.toUpperCase() === 'ACTIVE' ? 'active' :
+                        jobPosting.status?.toUpperCase() === 'DRAFT' ? 'draft' :
+                        jobPosting.status?.toUpperCase() === 'CLOSED' ? 'closed' :
+                        'default'
+                      }
                       className="mb-4"
                     >
-                      {jobPosting.status}
+                      {jobPosting.status?.toUpperCase() || 'ACTIVE'}
                     </Badge>
                   </div>
                   <div className="flex gap-2">
                     <Button
                       variant="outline"
                       onClick={() => onEdit(jobPosting.id)}
-                      className="flex items-center gap-2 bg-[#2D2DDD] text-white border-[#2D2DDD] hover:bg-[#2D2DDD]/90 hover:border-[#2D2DDD]/90 dark:bg-[#2D2DDD] dark:text-white dark:border-[#2D2DDD] dark:hover:bg-[#2D2DDD]/90"
+                      className="flex items-center gap-2 bg-[#2D2DDD] text-white border-[#2D2DDD] hover:bg-[#2D2DDD] hover:border-[#2D2DDD] dark:bg-[#2D2DDD] dark:text-white dark:border-[#2D2DDD] dark:hover:bg-[#2D2DDD] shadow-none hover:shadow-none"
                     >
                       <Edit className="w-4 h-4 text-white" />
                       Edit
@@ -108,7 +113,7 @@ export function JobDetailsModal({ isOpen, onClose, jobPosting, onEdit }: JobDeta
                 {/* Interview Information */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {jobPosting.application_deadline && (
-                    <Card className="bg-purple-50 border-purple-200">
+                    <Card className="bg-[#2D2DDD]/10 border-[#2D2DDD]/20">
                       <CardContent className="p-4">
                         <div className="flex items-center gap-3 mb-3">
                           <Clock className="w-5 h-5 text-[#2D2DDD]" />
@@ -186,7 +191,7 @@ export function JobDetailsModal({ isOpen, onClose, jobPosting, onEdit }: JobDeta
                 <div className="flex justify-end pt-6 border-t">
                   <Button 
                     onClick={onClose}
-                    className="bg-[#2D2DDD] text-white hover:bg-[#2D2DDD]/90 dark:bg-[#2D2DDD] dark:text-white dark:hover:bg-[#2D2DDD]/90"
+                    className="bg-[#2D2DDD] text-white hover:bg-[#2D2DDD] dark:bg-[#2D2DDD] dark:text-white dark:hover:bg-[#2D2DDD] shadow-none hover:shadow-none"
                   >
                     Close
                   </Button>

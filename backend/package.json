@@ -8,11 +8,11 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.934.0",
-    "@google/generative-ai": "^0.24.1",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
+    "groq-sdk": "^0.3.3",
     "imapflow": "^1.1.1",
     "jsonwebtoken": "^9.0.2",
     "mailparser": "^3.9.0",

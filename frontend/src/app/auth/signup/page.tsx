@@ -10,6 +10,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useAuth } from '@/hooks/use-auth'
 import { Eye, EyeOff, ArrowLeft } from 'lucide-react'
+import AnimatedShaderBackground from '@/components/ui/animated-shader-background'
 
 const signUpSchema = z.object({
   username: z.string().min(3, 'Username must be at least 3 characters').max(50, 'Username must be less than 50 characters').regex(/^[a-zA-Z0-9_]+$/, 'Username can only contain letters, numbers, and underscores'),
@@ -88,12 +89,13 @@ export default function SignUpPage() {
   }
 
   return (
-    <div className="w-full min-h-screen bg-black flex items-center justify-center p-4 py-8">
+    <div className="w-full min-h-screen bg-black flex items-center justify-center p-4 py-8 relative">
+      <AnimatedShaderBackground />
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
-        className="flex flex-col md:flex-row w-full max-w-5xl min-h-[600px] max-h-[90vh] bg-white rounded-3xl shadow-2xl overflow-hidden"
+        className="flex flex-col md:flex-row w-full max-w-5xl min-h-[600px] max-h-[90vh] bg-white rounded-3xl shadow-2xl overflow-hidden relative z-10"
       >
         {/* Left Panel */}
         <div className="flex-1 relative overflow-hidden hidden md:block">
@@ -108,7 +110,7 @@ export default function SignUpPage() {
 
           <div className="absolute inset-0">
             <Image
-              src="/assets/images/2149741207.jpg"
+              src="/assets/images/modern logo image (2).png"
               alt="HR Recruitment"
               fill
               priority
@@ -119,9 +121,11 @@ export default function SignUpPage() {
         </div>
 
         {/* Right Panel */}
-        <div className="flex-1 p-8 flex flex-col relative overflow-y-auto">
+        <div className="flex-1 p-8 flex flex-col relative overflow-y-auto backdrop-blur-xl bg-white/80 border-l border-white/20">
+          {/* Glassmorphism overlay */}
+          <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-white/30 to-white/20 pointer-events-none rounded-r-3xl" />
           {/* Mobile back button */}
-          <div className="md:hidden absolute top-6 left-6 z-10">
+          <div className="md:hidden absolute top-6 left-6 z-20">
             <button
               onClick={() => router.push('/')}
               className="w-10 h-10 bg-black/20 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-black/30 transition-all"
@@ -130,6 +134,7 @@ export default function SignUpPage() {
             </button>
           </div>
 
+          <div className="relative z-10">
           <div className="mb-6 flex-shrink-0">
             <h1 className="text-4xl sm:text-5xl md:text-6xl font-extralight font-figtree leading-[1.05] tracking-tight text-gray-900 mb-2">Create an Account</h1>
             <p className="text-gray-600 font-figtree">
@@ -388,6 +393,7 @@ export default function SignUpPage() {
               {isLoading ? 'Creating Account...' : 'Create Account'}
             </button>
           </form>
+          </div>
         </div>
       </motion.div>
     </div>

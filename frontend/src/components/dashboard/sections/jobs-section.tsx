@@ -82,7 +82,7 @@ export function JobsSection() {
         
         console.log('🔄 Loading jobs for user:', user.id)
         
-        // Use backend API to fetch jobs
+        // Use frontend API route to fetch jobs
         const token = localStorage.getItem('token')
         if (!token) {
           setError('Not authenticated')
@@ -90,8 +90,7 @@ export function JobsSection() {
           return
         }
 
-        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'
-        const response = await fetch(`${backendUrl}/api/job-postings`, {
+        const response = await fetch('/api/job-postings', {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -184,7 +183,7 @@ export function JobsSection() {
       setIsLoading(true)
       setError(null)
       
-      // Use backend API to fetch jobs
+      // Use frontend API route to fetch jobs
       const token = localStorage.getItem('token')
       if (!token) {
         setError('Not authenticated')
@@ -192,8 +191,7 @@ export function JobsSection() {
         return
       }
 
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'
-      const response = await fetch(`${backendUrl}/api/job-postings`, {
+      const response = await fetch('/api/job-postings', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -287,7 +285,8 @@ export function JobsSection() {
         throw new Error('Not authenticated')
       }
       
-      const resp = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/job-postings`, {
+      // Use frontend API route (works without backend server)
+      const resp = await fetch('/api/job-postings', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -560,7 +559,7 @@ export function JobsSection() {
             onClick={refreshJobs}
             disabled={isLoading}
             size="sm"
-            className="bg-[#2D2DDD] text-white border-[#2D2DDD] hover:bg-[#2D2DDD]/90 hover:border-[#2D2DDD]/90 dark:bg-[#2D2DDD] dark:text-white dark:border-[#2D2DDD] dark:hover:bg-[#2D2DDD]/90 flex-1 sm:w-auto"
+            className="bg-[#2D2DDD] text-white border-[#2D2DDD] hover:bg-[#2D2DDD] hover:border-[#2D2DDD] dark:bg-[#2D2DDD] dark:text-white dark:border-[#2D2DDD] dark:hover:bg-[#2D2DDD] flex-1 sm:w-auto shadow-none hover:shadow-none"
           >
             <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin-smooth' : ''}`} />
             Refresh
@@ -568,7 +567,7 @@ export function JobsSection() {
           <Button 
             variant="default" 
             size="sm"
-            className="bg-[#2D2DDD] text-white hover:border-white hover:bg-[#2D2DDD] hover:text-white flex-1 sm:w-auto"
+            className="bg-[#2D2DDD] text-white hover:border-white hover:bg-[#2D2DDD] hover:text-white flex-1 sm:w-auto shadow-none hover:shadow-none"
             onClick={() => setIsCreateModalOpen(true)}
           >
             <Plus className="w-4 h-4 mr-2" />
@@ -621,7 +620,7 @@ export function JobsSection() {
               </p>
               <Button 
                 onClick={() => setIsCreateModalOpen(true)}
-                className="bg-[#2D2DDD] hover:bg-[#2D2DDD]/90 text-white"
+                className="bg-[#2D2DDD] hover:bg-[#2D2DDD] text-white shadow-none hover:shadow-none"
               >
                 <Plus className="w-4 h-4 mr-2" />
                 Create Your First Job
@@ -642,9 +641,14 @@ export function JobsSection() {
                     <div className="flex items-center gap-3 mb-2">
                       <h3 className="text-xl font-semibold font-figtree">{job.job_title}</h3>
                       <Badge 
-                        variant={job.status === 'active' ? 'success' : job.status === 'paused' ? 'warning' : 'destructive'}
+                        variant={
+                          job.status?.toUpperCase() === 'ACTIVE' ? 'active' :
+                          job.status?.toUpperCase() === 'DRAFT' ? 'draft' :
+                          job.status?.toUpperCase() === 'CLOSED' ? 'closed' :
+                          'default'
+                        }
                       >
-                        {job.status}
+                        {job.status?.toUpperCase() || 'ACTIVE'}
                       </Badge>
                     </div>
                     <p className="text-gray-600 dark:text-gray-400 font-figtree font-light mb-4 line-clamp-2">
@@ -671,10 +675,17 @@ export function JobsSection() {
                   </div>
                   <div className="flex flex-col gap-2 mt-4 sm:mt-0 sm:min-w-[140px]">
                     <Button 
+                      type="button"
                       variant="default" 
                       size="sm"
-                      onClick={() => router.push(`/dashboard/job/${job.id}/shortlisted`)}
-                      className="bg-[#2D2DDD] text-white hover:bg-[#2D2DDD]/90 w-full"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        const jobId = String(job.id || job.job_posting_id)
+                        console.log('Navigating to candidates for job:', jobId)
+                        router.push(`/dashboard/job/${jobId}/shortlisted`)
+                      }}
+                      className="bg-[#2D2DDD] text-white hover:bg-[#2D2DDD] w-full shadow-none hover:shadow-none"
                     >
                       <Users className="w-4 h-4 mr-2" />
                       View Candidates
@@ -693,7 +704,7 @@ export function JobsSection() {
                         variant="outline" 
                         size="sm"
                         onClick={() => handleViewDetails(job.id)}
-                        className="bg-[#2D2DDD] text-white border-[#2D2DDD] hover:bg-[#2D2DDD]/90 hover:border-[#2D2DDD]/90 dark:bg-[#2D2DDD] dark:text-white dark:border-[#2D2DDD] dark:hover:bg-[#2D2DDD]/90 flex-1 sm:w-auto"
+                        className="bg-[#2D2DDD] text-white border-[#2D2DDD] hover:bg-[#2D2DDD] hover:border-[#2D2DDD] dark:bg-[#2D2DDD] dark:text-white dark:border-[#2D2DDD] dark:hover:bg-[#2D2DDD] flex-1 sm:w-auto shadow-none hover:shadow-none"
                       >
                         <ExternalLink className="w-4 h-4 mr-1" />
                         View Details

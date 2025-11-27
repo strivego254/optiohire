@@ -63,11 +63,14 @@ export function Sidebar({ activeSection, onSectionChange }: SidebarProps) {
   const { user } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
-  const { resolvedTheme } = useTheme()
-
+  
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  // Get theme safely
+  const themeContext = useTheme()
+  const resolvedTheme = themeContext?.resolvedTheme || 'dark'
 
   const logoSrc =
     resolvedTheme === 'light'
@@ -114,6 +117,11 @@ export function Sidebar({ activeSection, onSectionChange }: SidebarProps) {
         <nav className="flex-1 p-3 sm:p-4 space-y-2 overflow-y-auto">
           {sidebarItems.map((item) => {
             const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
+            const IconComponent = item.icon
+            if (!IconComponent) {
+              console.error(`Icon component not found for ${item.id}`)
+              return null
+            }
             return (
               <Link
                 key={item.id}
@@ -125,7 +133,7 @@ export function Sidebar({ activeSection, onSectionChange }: SidebarProps) {
                     : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-[#2D2DDD] dark:hover:text-white'
                 }`}
               >
-                <item.icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-white' : 'text-gray-500 dark:text-gray-400 group-hover:text-[#2D2DDD] dark:group-hover:text-white'}`} />
+                <IconComponent className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-white' : 'text-gray-500 dark:text-gray-400 group-hover:text-[#2D2DDD] dark:group-hover:text-white'}`} />
                 {!isCollapsed && (
                   <>
                     <span className="font-figtree font-medium">{item.label}</span>
@@ -144,16 +152,16 @@ export function Sidebar({ activeSection, onSectionChange }: SidebarProps) {
               onClick={() => router.push('/admin')}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all duration-200 group ${
                 pathname?.startsWith('/admin')
-                  ? 'bg-gradient-to-r from-purple-600/10 to-purple-600/5 dark:from-purple-600/20 dark:to-purple-600/10 text-purple-600 dark:text-purple-400 border border-purple-600/30 dark:border-purple-600/50'
-                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 hover:text-purple-600 dark:hover:text-purple-400'
+                  ? 'bg-gradient-to-r from-[#2D2DDD]/10 to-[#2D2DDD]/5 dark:from-[#2D2DDD]/20 dark:to-[#2D2DDD]/10 text-[#2D2DDD] dark:text-[#2D2DDD] border border-[#2D2DDD]/30 dark:border-[#2D2DDD]/50'
+                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 hover:text-[#2D2DDD] dark:hover:text-[#2D2DDD]'
               }`}
             >
-              <Shield className={`w-5 h-5 flex-shrink-0 ${pathname?.startsWith('/admin') ? 'text-purple-600' : 'text-gray-500 dark:text-gray-400 group-hover:text-purple-600'}`} />
+              <Shield className={`w-5 h-5 flex-shrink-0 ${pathname?.startsWith('/admin') ? 'text-[#2D2DDD]' : 'text-gray-500 dark:text-gray-400 group-hover:text-[#2D2DDD]'}`} />
               {!isCollapsed && (
                 <>
                   <span className="font-figtree font-medium">Admin Dashboard</span>
                   {pathname?.startsWith('/admin') && (
-                    <ChevronRight className="w-4 h-4 ml-auto text-purple-600" />
+                    <ChevronRight className="w-4 h-4 ml-auto text-[#2D2DDD]" />
                   )}
                 </>
               )}

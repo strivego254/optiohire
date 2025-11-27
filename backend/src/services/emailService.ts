@@ -9,24 +9,65 @@ export class EmailService {
   private logFile: string
 
   constructor() {
-    const mailHost = process.env.MAIL_HOST || 'smtp.gmail.com'
-    const mailUser = process.env.MAIL_USER
-    const mailPass = process.env.MAIL_PASS
+    const mailHost = process.env.MAIL_HOST || process.env.SMTP_HOST || 'smtp.gmail.com'
+    const mailUser = process.env.MAIL_USER || process.env.SMTP_USER
+    const mailPass = process.env.MAIL_PASS || process.env.SMTP_PASS
     const mailFrom = 'hirebitapplications@gmail.com'
+
+    // Warn if credentials are missing
+    if (!mailUser || !mailPass) {
+      logger.warn('Email service initialized without authentication credentials. Emails will fail to send.')
+      logger.warn('Please set MAIL_USER/SMTP_USER and MAIL_PASS/SMTP_PASS environment variables.')
+      logger.warn('For Gmail, you must use an App Password (not your regular password).')
+      logger.warn('Generate one at: https://myaccount.google.com/apppasswords')
+    }
 
     this.transporter = nodemailer.createTransport({
       host: mailHost,
       port: 587,
-      secure: false,
+      secure: false, // Use TLS
       auth: mailUser && mailPass ? {
         user: mailUser,
         pass: mailPass
-      } : undefined
+      } : undefined,
+      // Add connection timeout and retry options
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 10000
     })
 
     // Setup email log file
     this.logFile = path.join(process.cwd(), 'logs', 'email.log')
     this.ensureLogDirectory()
+
+    // Verify connection on startup (non-blocking)
+    this.verifyConnection().catch(err => {
+      logger.warn('Email service connection verification failed:', err.message)
+    })
+  }
+
+  /**
+   * Verify SMTP connection and authentication
+   */
+  async verifyConnection(): Promise<boolean> {
+    try {
+      await this.transporter.verify()
+      logger.info('Email service: SMTP connection verified successfully')
+      return true
+    } catch (error: any) {
+      const errorMsg = error?.message || String(error)
+      logger.error('Email service: SMTP connection verification failed:', errorMsg)
+      
+      if (errorMsg?.includes('Authentication Required') || error?.responseCode === 530) {
+        logger.error('Gmail requires an App Password. Please:')
+        logger.error('1. Enable 2-Step Verification on your Google account')
+        logger.error('2. Go to https://myaccount.google.com/apppasswords')
+        logger.error('3. Generate an App Password for "Mail"')
+        logger.error('4. Set MAIL_PASS or SMTP_PASS environment variable to the 16-character App Password')
+      }
+      
+      return false
+    }
   }
 
   private async ensureLogDirectory() {
@@ -119,6 +160,13 @@ ${data.companyName || 'Hiring Team'}
     companyDomain?: string | null
     interviewLink: string | null
   }) {
+    const hrEmail = data.companyEmail || 'hirebitapplications@gmail.com'
+    const candidateName = data.candidateName || '[Candidate\'s Full Name]'
+    const companyName = data.companyName || '[Company Name]'
+    const jobTitle = data.jobTitle || '[Job Title]'
+
+    const subject = `Invitation to Interview – ${jobTitle} at ${companyName}`
+    
     const html = `
 <!DOCTYPE html>
 <html>
@@ -126,44 +174,44 @@ ${data.companyName || 'Hiring Team'}
   <style>
     body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
     .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-    .header { background: #2D2DDD; color: white; padding: 20px; text-align: center; }
-    .content { padding: 20px; background: #f9f9f9; }
-    .button { display: inline-block; padding: 12px 24px; background: #2D2DDD; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
   </style>
 </head>
 <body>
   <div class="container">
-    <div class="header">
-      <h1>🎉 Congratulations!</h1>
-    </div>
-    <div class="content">
-      <p>Hi ${data.candidateName},</p>
-      <p>Great news! You've been shortlisted for the position of <strong>${data.jobTitle}</strong>.</p>
-      ${data.interviewLink ? `
-      <p>Interview details will be shared soon. Meeting link: <a href="${data.interviewLink}">${data.interviewLink}</a></p>
-      ` : ''}
-      <p>We'll notify you about the interview time shortly.</p>
-      <p>Best regards,<br>${data.companyName} Team</p>
-    </div>
+    <p>Dear ${candidateName},</p>
+    
+    <p><strong>Congratulations!</strong> After reviewing your application for the <strong>${jobTitle}</strong> position at <strong>${companyName}</strong>, we are pleased to inform you that you have been shortlisted for the next stage of our recruitment process.</p>
+    
+    <p>We would like to invite you to an interview to discuss your experience, skills, and how they align with our company's goals.</p>
+    
+    ${data.interviewLink ? `<p><strong>Interview Link:</strong> <a href="${data.interviewLink}">${data.interviewLink}</a></p>` : ''}
+    
+    <p>If you have any questions or encounter any issues while scheduling your interview, please don't hesitate to contact our HR team at <a href="mailto:${hrEmail}">${hrEmail}</a>.</p>
+    
+    <p>We look forward to meeting you and learning more about how you can contribute to our team.</p>
+    
+    <p>Kind regards,<br>
+    <strong>Company Name:</strong> ${companyName}<br>
+    <strong>Company Email:</strong> ${hrEmail}</p>
   </div>
 </body>
 </html>
     `
 
-    const text = `
-Congratulations!
+    const text = `Dear ${candidateName},
 
-Hi ${data.candidateName},
+Congratulations! After reviewing your application for the ${jobTitle} position at ${companyName}, we are pleased to inform you that you have been shortlisted for the next stage of our recruitment process.
 
-Great news! You've been shortlisted for the position of ${data.jobTitle}.
+We would like to invite you to an interview to discuss your experience, skills, and how they align with our company's goals.
 
-${data.interviewLink ? `Interview link: ${data.interviewLink}` : 'Interview details will be shared soon.'}
+${data.interviewLink ? `Interview Link: ${data.interviewLink}\n\n` : ''}If you have any questions or encounter any issues while scheduling your interview, please don't hesitate to contact our HR team at ${hrEmail}.
 
-We'll notify you about the interview time shortly.
+We look forward to meeting you and learning more about how you can contribute to our team.
 
-Best regards,
-${data.companyName} Team
-    `
+Kind regards,
+
+Company Name: ${companyName}
+Company Email: ${hrEmail}`
 
     // Generate from email: use company_email, companyDomain, or fallback
     const fromEmail = this.getCompanyEmail(data.companyEmail, data.companyDomain, data.companyName)
@@ -171,9 +219,9 @@ ${data.companyName} Team
     await this.sendEmail({
       to: data.candidateEmail,
       from: fromEmail,
-      subject: `Congratulations! You've been shortlisted for ${data.jobTitle}`,
-      html,
-      text
+      subject,
+      text,
+      html: '' // Not used, but required by interface
     })
   }
 
@@ -185,6 +233,13 @@ ${data.companyName} Team
     companyEmail?: string | null
     companyDomain?: string | null
   }) {
+    const hrEmail = data.companyEmail || 'hirebitapplications@gmail.com'
+    const candidateName = data.candidateName || '[Candidate\'s Full Name]'
+    const companyName = data.companyName || '[Company Name]'
+    const jobTitle = data.jobTitle || '[Job Title]'
+
+    const subject = `Update on Your Application for the ${jobTitle} Position at ${companyName}`
+    
     const html = `
 <!DOCTYPE html>
 <html>
@@ -192,41 +247,46 @@ ${data.companyName} Team
   <style>
     body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
     .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-    .header { background: #666; color: white; padding: 20px; text-align: center; }
-    .content { padding: 20px; background: #f9f9f9; }
   </style>
 </head>
 <body>
   <div class="container">
-    <div class="header">
-      <h1>Application Update</h1>
-    </div>
-    <div class="content">
-      <p>Hi ${data.candidateName},</p>
-      <p>Thank you for your interest in the <strong>${data.jobTitle}</strong> position.</p>
-      <p>After careful review, we have decided to move forward with other candidates at this time.</p>
-      <p>We appreciate your interest and wish you the best in your job search.</p>
-      <p>Best regards,<br>${data.companyName} Team</p>
-    </div>
+    <p>Dear ${candidateName},</p>
+    
+    <p>Thank you for taking the time to apply for the <strong>${jobTitle}</strong> position at <strong>${companyName}</strong> and for your interest in joining our team. We truly appreciate the effort you put into your application and the time you invested in the selection process.</p>
+    
+    <p>After careful consideration and review of all candidates, we regret to inform you that we will not be moving forward with your application at this time. This decision was not easy, as we received a high number of strong applications, including yours.</p>
+    
+    <p>Although you were not selected for this role, we encourage you to apply for future opportunities that match your skills and experience. Your profile is impressive, and we believe you may be a strong fit for upcoming positions within <strong>${companyName}</strong>.</p>
+    
+    <p>If you have any questions or would like feedback regarding your application, please feel free to contact us at <a href="mailto:${hrEmail}">${hrEmail}</a>.</p>
+    
+    <p>We sincerely appreciate your interest in our company and wish you the very best in your job search and future career endeavors.</p>
+    
+    <p>Kind regards,<br>
+    <strong>Company Name:</strong> ${companyName}<br>
+    <strong>Company Email:</strong> ${hrEmail}</p>
   </div>
 </body>
 </html>
     `
 
-    const text = `
-Application Update
+    const text = `Dear ${candidateName},
 
-Hi ${data.candidateName},
+Thank you for taking the time to apply for the ${jobTitle} position at ${companyName} and for your interest in joining our team. We truly appreciate the effort you put into your application and the time you invested in the selection process.
 
-Thank you for your interest in the ${data.jobTitle} position.
+After careful consideration and review of all candidates, we regret to inform you that we will not be moving forward with your application at this time. This decision was not easy, as we received a high number of strong applications, including yours.
 
-After careful review, we have decided to move forward with other candidates at this time.
+Although you were not selected for this role, we encourage you to apply for future opportunities that match your skills and experience. Your profile is impressive, and we believe you may be a strong fit for upcoming positions within ${companyName}.
 
-We appreciate your interest and wish you the best in your job search.
+If you have any questions or would like feedback regarding your application, please feel free to contact us at ${hrEmail}.
 
-Best regards,
-${data.companyName} Team
-    `
+We sincerely appreciate your interest in our company and wish you the very best in your job search and future career endeavors.
+
+Kind regards,
+
+Company Name: ${companyName}
+Company Email: ${hrEmail}`
 
     // Generate from email: use company_email, companyDomain, or fallback
     const fromEmail = this.getCompanyEmail(data.companyEmail, data.companyDomain, data.companyName)
@@ -234,9 +294,9 @@ ${data.companyName} Team
     await this.sendEmail({
       to: data.candidateEmail,
       from: fromEmail,
-      subject: `Application Update - ${data.jobTitle}`,
-      html,
-      text
+      subject,
+      text,
+      html: '' // Not used, but required by interface
     })
   }
 
@@ -511,6 +571,20 @@ HireBit System
     try {
       const from = data.from || 'hirebitapplications@gmail.com'
       
+      // Verify transporter is configured
+      if (!this.transporter) {
+        throw new Error('Email transporter not initialized')
+      }
+
+      // Verify authentication is configured
+      const mailUser = process.env.MAIL_USER || process.env.SMTP_USER
+      const mailPass = process.env.MAIL_PASS || process.env.SMTP_PASS
+      
+      if (!mailUser || !mailPass) {
+        logger.error('Email authentication not configured. MAIL_USER/SMTP_USER and MAIL_PASS/SMTP_PASS environment variables must be set.')
+        throw new Error('Email authentication not configured. Please set MAIL_USER/SMTP_USER and MAIL_PASS/SMTP_PASS environment variables. For Gmail, use an App Password (not your regular password).')
+      }
+      
       await this.transporter.sendMail({
         from,
         to: data.to,
@@ -524,6 +598,16 @@ HireBit System
     } catch (error: any) {
       const errorMsg = error?.message || String(error)
       logger.error(`Failed to send email to ${data.to}:`, error)
+      
+      // Provide helpful error message for authentication failures
+      if (error?.responseCode === 530 || errorMsg?.includes('Authentication Required')) {
+        logger.error('SMTP Authentication Error: Gmail requires an App Password. Please:')
+        logger.error('1. Go to https://myaccount.google.com/apppasswords')
+        logger.error('2. Generate an App Password for "Mail"')
+        logger.error('3. Set MAIL_PASS or SMTP_PASS environment variable to the generated App Password (not your regular password)')
+        logger.error('4. Ensure MAIL_USER or SMTP_USER is set to your Gmail address')
+      }
+      
       await this.logEmail(data.to, data.subject, 'failed', errorMsg)
       throw error
     }

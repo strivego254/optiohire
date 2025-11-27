@@ -74,7 +74,8 @@ export async function scoreApplication(req: Request, res: Response) {
       to: app.email,
       candidateName: app.candidate_name || 'Candidate',
       status,
-      interviewLink: null
+      interviewLink: null,
+      jobPostingId: job_posting_id
     })
 
     return res.status(200).json({ score, status, reasoning })

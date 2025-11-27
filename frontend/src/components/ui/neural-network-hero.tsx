@@ -260,7 +260,6 @@ interface HeroProps {
   badgeText?: string;
   badgeLabel?: string;
   ctaButtons?: Array<{ text: string; href: string; onClick?: () => void; primary?: boolean }>;
-  microDetails?: Array<string>;
 }
 
 export default function NeuralNetworkHero({
@@ -271,18 +270,13 @@ export default function NeuralNetworkHero({
   ctaButtons = [
     { text: "Get started", href: "#get-started", primary: true },
     { text: "View showcase", href: "#showcase" }
-  ],
-  microDetails = ["Low‑weight font", "Tight tracking", "Subtle motion"]
+  ]
 }: HeroProps) {
   const sectionRef = useRef<HTMLElement | null>(null);
   const headerRef = useRef<HTMLHeadingElement | null>(null);
   const paraRef = useRef<HTMLParagraphElement | null>(null);
   const ctaRef = useRef<HTMLDivElement | null>(null);
   const badgeRef = useRef<HTMLDivElement | null>(null);
-  const microRef = useRef<HTMLUListElement | null>(null);
-  const microItem1Ref = useRef<HTMLLIElement | null>(null);
-  const microItem2Ref = useRef<HTMLLIElement | null>(null);
-  const microItem3Ref = useRef<HTMLLIElement | null>(null);
 
   useGSAP(
     () => {
@@ -293,14 +287,12 @@ export default function NeuralNetworkHero({
       const badgeEl = badgeRef.current;
       const paraEl = paraRef.current;
       const ctaEl = ctaRef.current;
-      const microItems = [microItem1Ref.current, microItem2Ref.current, microItem3Ref.current].filter(Boolean) as HTMLElement[];
 
       // Set initial states immediately
-      gsap.set([headerEl, paraEl, ctaEl, badgeEl, ...microItems], { opacity: 0, y: 30 });
+      gsap.set([headerEl, paraEl, ctaEl, badgeEl], { opacity: 0, y: 30 });
       if (paraEl) gsap.set(paraEl, { y: 12 });
       if (ctaEl) gsap.set(ctaEl, { y: 10 });
       if (badgeEl) gsap.set(badgeEl, { y: -8 });
-      if (microItems.length > 0) gsap.set(microItems, { y: 6 });
 
       // Animate in with smooth timeline
       const tl = gsap.timeline({ 
@@ -311,7 +303,6 @@ export default function NeuralNetworkHero({
       tl.to(headerEl, { opacity: 1, y: 0, duration: 0.9 }, 0.1);
       if (paraEl) tl.to(paraEl, { opacity: 1, y: 0, duration: 0.5 }, '-=0.55');
       if (ctaEl) tl.to(ctaEl, { opacity: 1, y: 0, duration: 0.5 }, '-=0.35');
-      if (microItems.length > 0) tl.to(microItems, { opacity: 1, y: 0, duration: 0.5, stagger: 0.1 }, '-=0.25');
 
       // Return cleanup function
       return () => {
@@ -364,17 +355,6 @@ export default function NeuralNetworkHero({
             );
           })}
         </div>
-
-        <ul ref={microRef} className="mt-8 flex flex-wrap items-center justify-center gap-6 text-xs font-extralight tracking-tight text-white/60">
-          {microDetails.map((detail, index) => {
-            const refMap = [microItem1Ref, microItem2Ref, microItem3Ref];
-            return (
-              <li key={index} ref={refMap[index]} className="flex items-center gap-2">
-                <span className="h-1 w-1 rounded-full bg-white/40" /> {detail}
-              </li>
-            );
-          })}
-        </ul>
       </div>
 
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/40 to-transparent" />

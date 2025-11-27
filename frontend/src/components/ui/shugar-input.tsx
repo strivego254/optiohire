@@ -69,7 +69,7 @@ export const ShugarInput = ({
       <div
         className={clsx(
           "flex items-center transition font-sans",
-          error ? "ring-2 ring-red-500 bg-red-50" : "border border-slate-200 hover:border-slate-300 focus-within:ring-2 focus-within:ring-primary/40",
+          error ? "ring-2 ring-red-500 bg-red-50" : "border border-slate-200 hover:border-slate-300 focus-within:ring-2 focus-within:ring-[#2D2DDD]/40 focus-within:border-[#2D2DDD]",
           sizes[size],
           disabled ? "cursor-not-allowed bg-slate-100 text-slate-400" : "bg-white dark:bg-slate-900",
           wrapperClassName

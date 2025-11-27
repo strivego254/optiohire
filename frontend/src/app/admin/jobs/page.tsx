@@ -165,8 +165,15 @@ export default function AdminJobsPage() {
                         <div className="flex items-center gap-3 mb-2">
                           <Briefcase className="h-5 w-5 text-green-400" />
                           <span className="font-semibold text-lg">{job.job_title}</span>
-                          <Badge variant={job.status === 'ACTIVE' ? 'default' : 'secondary'}>
-                            {job.status}
+                          <Badge 
+                            variant={
+                              job.status?.toUpperCase() === 'ACTIVE' ? 'active' :
+                              job.status?.toUpperCase() === 'DRAFT' ? 'draft' :
+                              job.status?.toUpperCase() === 'CLOSED' ? 'closed' :
+                              'default'
+                            }
+                          >
+                            {job.status?.toUpperCase() || 'ACTIVE'}
                           </Badge>
                         </div>
                         <div className="grid grid-cols-2 gap-4 text-sm text-gray-400">

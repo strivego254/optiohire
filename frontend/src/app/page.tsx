@@ -42,7 +42,6 @@ export default function HomePage() {
             onClick: () => router.push('/auth/signin')
           }
         ]}
-        microDetails={["95% AI Accuracy", "5x Faster Hiring", "70% Cost Reduction"]}
       />
 
       {/* Video Section */}

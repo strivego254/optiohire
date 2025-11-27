@@ -25,22 +25,29 @@ export function SingleDateTimePicker({
   const [selectedTime, setSelectedTime] = React.useState<string>('')
 
   React.useEffect(() => {
-    if (!value) {
+    if (!value || value.trim() === '') {
       setSelectedDate('')
       setSelectedTime('')
       return
     }
 
-    const parsed = new Date(value)
-    if (Number.isNaN(parsed.getTime())) {
+    try {
+      const parsed = new Date(value)
+      if (isNaN(parsed.getTime())) {
+        console.warn('Invalid date value received:', value)
+        setSelectedDate('')
+        setSelectedTime('')
+        return
+      }
+
+      // Format date as YYYY-MM-DD for input[type="date"]
+      setSelectedDate(format(parsed, 'yyyy-MM-dd'))
+      setSelectedTime(format(parsed, 'HH:mm'))
+    } catch (err) {
+      console.warn('Error parsing date value:', value, err)
       setSelectedDate('')
       setSelectedTime('')
-      return
     }
-
-    // Format date as YYYY-MM-DD for input[type="date"]
-    setSelectedDate(format(parsed, 'yyyy-MM-dd'))
-    setSelectedTime(format(parsed, 'HH:mm'))
   }, [value])
 
   const handleDateChange = React.useCallback(
@@ -51,9 +58,18 @@ export function SingleDateTimePicker({
         const combined = `${date}T${time}`
         const combinedDate = new Date(combined)
         
+        // Validate date before using it
+        if (isNaN(combinedDate.getTime())) {
+          console.warn('Invalid date value:', combined)
+          onChange('')
+          return
+        }
+        
         if (minDateTime) {
           const minDate = new Date(minDateTime)
-          if (combinedDate < minDate) {
+          if (isNaN(minDate.getTime())) {
+            console.warn('Invalid minDateTime:', minDateTime)
+          } else if (combinedDate < minDate) {
             return
           }
         }
@@ -73,9 +89,17 @@ export function SingleDateTimePicker({
         const combined = `${selectedDate}T${time}`
         const combinedDate = new Date(combined)
         
+        // Validate date before using it
+        if (isNaN(combinedDate.getTime())) {
+          console.warn('Invalid date value:', combined)
+          return
+        }
+        
         if (minDateTime) {
           const minDate = new Date(minDateTime)
-          if (combinedDate < minDate) {
+          if (isNaN(minDate.getTime())) {
+            console.warn('Invalid minDateTime:', minDateTime)
+          } else if (combinedDate < minDate) {
             return
           }
         }
@@ -86,10 +110,23 @@ export function SingleDateTimePicker({
     [selectedDate, minDateTime, onChange]
   )
 
-  const minDate = minDateTime ? format(new Date(minDateTime), 'yyyy-MM-dd') : undefined
-  const minTime = minDateTime && selectedDate === format(new Date(minDateTime), 'yyyy-MM-dd') 
-    ? format(new Date(minDateTime), 'HH:mm') 
-    : undefined
+  // Safely get minDate and minTime
+  let minDate: string | undefined = undefined
+  let minTime: string | undefined = undefined
+  
+  if (minDateTime) {
+    try {
+      const minDateObj = new Date(minDateTime)
+      if (!isNaN(minDateObj.getTime())) {
+        minDate = format(minDateObj, 'yyyy-MM-dd')
+        if (selectedDate === minDate) {
+          minTime = format(minDateObj, 'HH:mm')
+        }
+      }
+    } catch (err) {
+      console.warn('Invalid minDateTime:', minDateTime, err)
+    }
+  }
 
   return (
     <div className={cn("relative w-full space-y-3", className)}>
@@ -126,11 +163,17 @@ export function SingleDateTimePicker({
       {!selectedDate && (
         <p className="mt-2 text-xs text-muted-foreground">{placeholder}</p>
       )}
-      {selectedDate && selectedTime && (
-        <p className="mt-2 text-xs text-muted-foreground">
-          Selected {format(new Date(`${selectedDate}T${selectedTime}`), "MMM dd, yyyy 'at' HH:mm")}
-        </p>
-      )}
+      {selectedDate && selectedTime && (() => {
+        const displayDate = new Date(`${selectedDate}T${selectedTime}`)
+        if (isNaN(displayDate.getTime())) {
+          return null
+        }
+        return (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Selected {format(displayDate, "MMM dd, yyyy 'at' HH:mm")}
+          </p>
+        )
+      })()}
     </div>
   )
 }

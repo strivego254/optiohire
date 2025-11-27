@@ -20,7 +20,8 @@ import { router as userRouter } from './routes/user.js'
 import { router as analyticsRouter } from './routes/analytics.js'
 import { ensureStorageDir } from './utils/storage.js'
 import { logger } from './utils/logger.js'
-import './cron/reportScheduler.js'
+import { startReportScheduler } from './cron/reportScheduler.js'
+import { startDeadlineStatusScheduler } from './cron/scheduler.js'
 // Email reader enabled - monitors inbox for job applications
 import './server/email-reader.js'
 
@@ -79,6 +80,21 @@ app.use('/api/analytics', analyticsRouter) // Analytics tracking endpoints
 // Start
 async function start() {
   await ensureStorageDir()
+  
+  // Start deadline status scheduler
+  startDeadlineStatusScheduler().catch((err) => {
+    logger.error('Failed to start deadline status scheduler:', err)
+  })
+  
+  // Start report scheduler (for automatic report generation)
+  if (process.env.NODE_ENV !== 'test' && !process.env.DISABLE_REPORT_SCHEDULER) {
+    startReportScheduler().catch((err) => {
+      logger.error('Failed to start report scheduler:', err)
+    })
+  } else {
+    logger.info('Report scheduler disabled (NODE_ENV=test or DISABLE_REPORT_SCHEDULER is set)')
+  }
+  
   app.listen(port, () => {
     logger.info(`Backend listening on http://localhost:${port}`)
   })

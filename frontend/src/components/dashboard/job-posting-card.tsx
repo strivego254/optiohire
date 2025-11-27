@@ -31,7 +31,7 @@ export function JobPostingCard({ jobPosting, onViewDetails, delay = 0 }: JobPost
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay }}
     >
-      <Card className="group hover:shadow-glow transition-all duration-300 cursor-pointer"
+      <Card className="group transition-all duration-300 cursor-pointer"
             onClick={() => onViewDetails(jobPosting.id)}>
         <CardHeader className="pb-4">
           <div className="flex items-start justify-between">
@@ -45,10 +45,15 @@ export function JobPostingCard({ jobPosting, onViewDetails, delay = 0 }: JobPost
             </div>
             <div className="flex flex-col items-end gap-2">
               <Badge 
-                variant={jobPosting.status === 'active' ? 'success' : jobPosting.status === 'paused' ? 'warning' : 'destructive'}
+                variant={
+                  jobPosting.status?.toUpperCase() === 'ACTIVE' ? 'active' :
+                  jobPosting.status?.toUpperCase() === 'DRAFT' ? 'draft' :
+                  jobPosting.status?.toUpperCase() === 'CLOSED' ? 'closed' :
+                  'default'
+                }
                 className="text-xs"
               >
-                {jobPosting.status}
+                {jobPosting.status?.toUpperCase() || 'ACTIVE'}
               </Badge>
               {analytics && (
                 <StatusIndicator status={analytics.processing_status} />

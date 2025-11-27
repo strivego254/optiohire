@@ -5,7 +5,7 @@ import { motion } from 'framer-motion'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Calendar, Clock, Video, ExternalLink, Loader2, MapPin } from 'lucide-react'
+import { Calendar, Clock, Video, ExternalLink, Loader2, MapPin, User } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
 import { JobPosting } from '@/types'
 
@@ -40,15 +40,14 @@ export function InterviewsSection() {
         setIsLoading(true)
         setError(null)
         
-        // Fetch jobs from backend API
         const token = localStorage.getItem('token')
         if (!token) {
           setIsLoading(false)
           return
         }
 
-        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'
-        const response = await fetch(`${backendUrl}/api/job-postings`, {
+        // Fetch scheduled interviews from API
+        const response = await fetch('/api/interviews', {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -56,47 +55,56 @@ export function InterviewsSection() {
         })
 
         if (!response.ok) {
+          // If endpoint doesn't exist yet, return empty array
+          if (response.status === 404) {
+            setInterviews([])
+            setIsLoading(false)
+            return
+          }
           setInterviews([])
           setIsLoading(false)
           return
         }
 
         const data = await response.json()
-        const jobs = data.jobs || []
+        const scheduledInterviews = data.interviews || []
         
-        // Filter jobs with meeting links (interview links) and process data
-        const interviewsData: InterviewData[] = jobs
-          .filter((job: any) => job.meeting_link || job.interview_meeting_link)
-          .map((job: any) => ({
-            id: job.job_posting_id || job.id,
-            job_title: job.job_title,
-            status: job.status || 'active',
-            interview_date: job.interview_date || job.created_at,
-            meeting_link: job.meeting_link || job.interview_meeting_link,
-            applicantCount: job.applicant_count || 0,
-            upcomingInterviews: 0,
-            applicantStats: {
-              total: job.applicant_count || 0,
-              shortlisted: job.shortlisted_count || 0,
-              flagged: job.flagged_count || 0,
-              rejected: job.rejected_count || 0,
-              pending: Math.max(0, (job.applicant_count || 0) - 
-                (job.shortlisted_count || 0) - 
-                (job.rejected_count || 0) - 
-                (job.flagged_count || 0))
-            }
-          }))
+        // Transform scheduled interviews to InterviewData format
+        const interviewsData: InterviewData[] = scheduledInterviews.map((interview: any) => ({
+          id: interview.id,
+          job_title: interview.jobTitle,
+          status: 'active',
+          interview_date: interview.interviewTime,
+          meeting_link: interview.interviewLink,
+          google_calendar_link: interview.interviewLink,
+          applicantCount: 1,
+          upcomingInterviews: 1,
+          candidateName: interview.candidateName,
+          candidateEmail: interview.candidateEmail,
+          applicantStats: {
+            total: 1,
+            shortlisted: 1,
+            flagged: 0,
+            rejected: 0,
+            pending: 0
+          }
+        }))
         
         setInterviews(interviewsData)
       } catch (err) {
         console.error('Error loading interviews:', err)
         setError('Failed to load interview data')
+        setInterviews([])
       } finally {
         setIsLoading(false)
       }
     }
     
     loadInterviews()
+    
+    // Refresh every 30 seconds
+    const interval = setInterval(loadInterviews, 30000)
+    return () => clearInterval(interval)
   }, [user])
 
   const formatInterviewDate = (dateString: string) => {
@@ -242,22 +250,26 @@ export function InterviewsSection() {
                                     <Calendar className="w-4 h-4" />
                                     {dateInfo.date} at {dateInfo.time}
                                   </div>
-                                  <div className="flex items-center gap-1">
-                                    <MapPin className="w-4 h-4" />
-                                    {interview.company_name}
-                                  </div>
+                                  {(interview as any).candidateName && (
+                                    <div className="flex items-center gap-1">
+                                      <User className="w-4 h-4" />
+                                      {(interview as any).candidateName}
+                                    </div>
+                                  )}
                                 </div>
-                                <p className="text-sm text-muted-foreground font-figtree font-light">
-                                  {interview.job_description.substring(0, 100)}...
-                                </p>
+                                {(interview as any).candidateEmail && (
+                                  <p className="text-sm text-muted-foreground font-figtree font-light">
+                                    {(interview as any).candidateEmail}
+                                  </p>
+                                )}
                               </div>
                               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 mt-4 sm:mt-0">
-                                {interview.interview_meeting_link && (
+                                {interview.meeting_link && (
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => window.open(interview.interview_meeting_link!, '_blank')}
-                                    className="bg-[#2D2DDD] text-white border-[#2D2DDD] hover:bg-[#2D2DDD]/90 hover:border-[#2D2DDD]/90 dark:bg-[#2D2DDD] dark:text-white dark:border-[#2D2DDD] dark:hover:bg-[#2D2DDD]/90 w-full sm:w-auto"
+                                    onClick={() => window.open(interview.meeting_link!, '_blank')}
+                                    className="bg-[#2D2DDD] text-white border-[#2D2DDD] hover:bg-[#2D2DDD] hover:border-[#2D2DDD] dark:bg-[#2D2DDD] dark:text-white dark:border-[#2D2DDD] dark:hover:bg-[#2D2DDD] w-full sm:w-auto shadow-none hover:shadow-none"
                                   >
                                     <Video className="w-4 h-4 mr-1" />
                                     Join Meeting
@@ -268,7 +280,7 @@ export function InterviewsSection() {
                                     variant="outline"
                                     size="sm"
                                     onClick={() => interview.google_calendar_link && window.open(interview.google_calendar_link, '_blank')}
-                                    className="bg-[#2D2DDD] text-white border-[#2D2DDD] hover:bg-[#2D2DDD]/90 hover:border-[#2D2DDD]/90 dark:bg-[#2D2DDD] dark:text-white dark:border-[#2D2DDD] dark:hover:bg-[#2D2DDD]/90 w-full sm:w-auto"
+                                    className="bg-[#2D2DDD] text-white border-[#2D2DDD] hover:bg-[#2D2DDD] hover:border-[#2D2DDD] dark:bg-[#2D2DDD] dark:text-white dark:border-[#2D2DDD] dark:hover:bg-[#2D2DDD] w-full sm:w-auto shadow-none hover:shadow-none"
                                   >
                                     <ExternalLink className="w-4 h-4 mr-1" />
                                     Calendar

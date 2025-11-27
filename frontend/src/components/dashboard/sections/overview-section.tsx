@@ -18,21 +18,15 @@ import {
   ChevronDown,
   Plus
 } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
-import type { Database } from '@/lib/supabase'
 import { useAuth } from '@/hooks/use-auth'
-import { useAnalyticsRealtime, useJobsRealtime } from '@/hooks/use-realtime-data'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+// Removed unused imports: supabase, Database, useAnalyticsRealtime, useJobsRealtime
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
 import {
   ApplicantMetricsSlice,
   EMPTY_APPLICANT_METRICS,
-  combineApplicantMetrics,
-  deriveMetricsFromApplicantStatuses,
-  extractApplicantMetrics,
-  hasApplicantMetricsData,
 } from '@/utils/analytics'
 
 interface DashboardMetrics {
@@ -46,7 +40,12 @@ interface DashboardMetrics {
   rejectedApplicants: number
 }
 
-type JobPostingRow = Database['public']['Tables']['job_postings']['Row']
+type JobPostingRow = {
+  job_posting_id: string
+  job_title: string
+  status: string | null
+  [key: string]: any
+}
 
 interface JobPosting {
   id: string
@@ -54,43 +53,16 @@ interface JobPosting {
   status: JobPostingRow['status']
 }
 
-const ANALYTICS_SELECT_COLUMNS =
-  'total_applicants,total_applicants_shortlisted,total_shortlisted,total_applicants_rejected,total_rejected,total_applicants_flagged_to_hr,total_flagged'
+// Removed unused constants and functions
 
-const mergeApplicantMetrics = (
-  previous: DashboardMetrics,
-  slice: ApplicantMetricsSlice
-): DashboardMetrics => ({
-  ...previous,
-  totalApplicants: slice.totalApplicants,
-  shortlistedApplicants: slice.shortlistedApplicants,
-  rejectedApplicants: slice.rejectedApplicants,
-  flaggedApplicants: slice.flaggedApplicants,
-})
-
+// Removed Supabase fallback functions - using API routes instead
 const fetchApplicantFallbackMetrics = async (jobId: string) => {
-  const { data: applicants, error: applicantsError } = await supabase
-    .from('applicants')
-    .select('status')
-    .eq('job_posting_id', jobId)
-
-  if (!applicantsError && applicants) {
-    return deriveMetricsFromApplicantStatuses(applicants)
-  }
-
+  // This function is no longer used - metrics come from API
   return { ...EMPTY_APPLICANT_METRICS }
 }
 
 const fetchApplicantsAggregateForJobs = async (jobIds: string[]) => {
-  const { data: applicants, error: applicantsError } = await supabase
-    .from('applicants')
-    .select('status')
-    .in('job_posting_id', jobIds)
-
-  if (!applicantsError && applicants) {
-    return deriveMetricsFromApplicantStatuses(applicants)
-  }
-
+  // This function is no longer used - metrics come from API
   return { ...EMPTY_APPLICANT_METRICS }
 }
 
@@ -110,9 +82,11 @@ export function OverviewSection() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [jobPostings, setJobPostings] = useState<JobPosting[]>([])
-  const [selectedJobId, setSelectedJobId] = useState<string | 'all'>('all')
+  const [allJobsData, setAllJobsData] = useState<any[]>([]) // Store full job data with applicant counts
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(null)
   const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false)
   const [isPopoverOpen, setIsPopoverOpen] = useState(false)
+  const [selectedJobData, setSelectedJobData] = useState<any>(null)
 
   // Load job-specific analytics - simplified to skip Supabase stub calls
   const loadJobAnalytics = useCallback(async (jobId: string, options?: { skipLoadingState?: boolean }) => {
@@ -132,7 +106,7 @@ export function OverviewSection() {
     setIsLoadingAnalytics(false)
   }, [user])
 
-  const loadDashboardMetrics = useCallback(async () => {
+  const loadDashboardMetrics = useCallback(async (currentSelectedJobId: string | null = null, preserveSelection: boolean = false) => {
     if (!user) {
       setIsLoading(false)
       return
@@ -149,9 +123,8 @@ export function OverviewSection() {
         return
       }
 
-      // Fetch jobs from backend API
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'
-      const response = await fetch(`${backendUrl}/api/job-postings`, {
+      // Fetch jobs from frontend API route
+      const response = await fetch('/api/job-postings', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -159,9 +132,11 @@ export function OverviewSection() {
       })
 
       let jobs: any[] = []
+      let reportsData = { totalReports: 0, readyReports: 0 }
       if (response.ok) {
         const data = await response.json()
         jobs = data.jobs || []
+        reportsData = data.reports || { totalReports: 0, readyReports: 0 }
       } else if (response.status === 404) {
         // No company found or no jobs - this is okay, just show empty state
         jobs = []
@@ -172,51 +147,76 @@ export function OverviewSection() {
       }
       
       // Normalize jobs data - handle both backend format and Supabase format
+      // Also normalize IDs in the full jobs data for consistent matching
       const normalizedJobs: JobPosting[] = (jobs ?? [])
         .filter((job: any) => job && (job.id || job.job_posting_id || job.job_id))
         .map((job: any) => ({
-          id: job.id || job.job_posting_id || job.job_id,
+          id: String(job.id || job.job_posting_id || job.job_id), // Normalize to string
           job_title: job.job_title || job.title || 'Untitled Job',
           status: job.status || 'ACTIVE',
         }))
       
+      // Store full jobs data with normalized IDs for quick switching
+      const normalizedJobsData = jobs.map((job: any) => ({
+        ...job,
+        id: String(job.id || job.job_posting_id || job.job_id), // Ensure consistent ID field as string
+        job_posting_id: String(job.id || job.job_posting_id || job.job_id), // Also set job_posting_id for compatibility
+      }))
+      setAllJobsData(normalizedJobsData)
+      
       setJobPostings(normalizedJobs)
       
-      const activeJob = normalizedJobs.find(job => job.status === 'active' || job.status === 'ACTIVE')
-      const fallbackJobId = normalizedJobs[0]?.id ?? 'all'
-      const resolvedSelection =
-        (selectedJobId !== 'all' && normalizedJobs.some(job => job.id === selectedJobId))
-          ? selectedJobId
-          : (activeJob?.id ?? fallbackJobId)
+      // Determine which job to select
+      let resolvedSelection: string | null = null
+      if (preserveSelection && currentSelectedJobId) {
+        // Use the explicitly provided job ID
+        resolvedSelection = String(currentSelectedJobId)
+      } else if (!preserveSelection) {
+        // Default to most recently created job (first in array since API orders by created_at DESC)
+        resolvedSelection = normalizedJobs[0]?.id ? String(normalizedJobs[0].id) : null
+      } else {
+        // When preserveSelection is true but no currentSelectedJobId, use current selectedJobId from state
+        // We need to read it from a ref or pass it differently, but for now use the state
+        // Actually, if preserveSelection is true, we should have currentSelectedJobId
+        resolvedSelection = normalizedJobs[0]?.id ? String(normalizedJobs[0].id) : null
+      }
       
       setSelectedJobId(resolvedSelection)
       
-      const activeJobs = normalizedJobs.filter(job => job.status === 'active' || job.status === 'ACTIVE').length
+      // Find the selected job's data from the jobs array
+      const selectedJob = normalizedJobsData.find((job: any) => 
+        String(job.id) === String(resolvedSelection) || 
+        String(job.job_posting_id) === String(resolvedSelection)
+      )
+      setSelectedJobData(selectedJob || null)
+      
+      // Calculate metrics for ALL jobs (for the "Total Jobs" and "Active Jobs" cards)
+      const activeJobs = normalizedJobs.filter(job => {
+        const status = String(job.status || '').toUpperCase()
+        return status === 'ACTIVE'
+      }).length
       const totalJobs = normalizedJobs.length
       
-      // Calculate applicant metrics from jobs data
-      let totalApplicants = 0
-      let shortlistedApplicants = 0
-      let flaggedApplicants = 0
-      let rejectedApplicants = 0
+      // Calculate applicant metrics ONLY for the selected job
+      const jobApplicants = selectedJob ? {
+        totalApplicants: Number(selectedJob.applicant_count || 0),
+        shortlistedApplicants: Number(selectedJob.shortlisted_count || 0),
+        flaggedApplicants: Number(selectedJob.flagged_count || 0),
+        rejectedApplicants: Number(selectedJob.rejected_count || 0),
+      } : {
+        totalApplicants: 0,
+        shortlistedApplicants: 0,
+        flaggedApplicants: 0,
+        rejectedApplicants: 0,
+      }
       
-      jobs.forEach((job: any) => {
-        totalApplicants += job.applicant_count || 0
-        shortlistedApplicants += job.shortlisted_count || 0
-        flaggedApplicants += job.flagged_count || 0
-        rejectedApplicants += job.rejected_count || 0
-      })
-      
-      // Set metrics with actual data
+      // Set metrics with selected job's data
       setMetrics({
         activeJobs,
         totalJobs,
-        totalReports: 0,
-        readyReports: 0,
-        totalApplicants,
-        shortlistedApplicants,
-        flaggedApplicants,
-        rejectedApplicants,
+        totalReports: reportsData.totalReports,
+        readyReports: reportsData.readyReports,
+        ...jobApplicants,
       })
 
       // Skip analytics loading if no jobs
@@ -227,29 +227,134 @@ export function OverviewSection() {
     } finally {
       setIsLoading(false)
     }
-  }, [loadAllJobsAnalytics, loadJobAnalytics, selectedJobId, user])
+  }, [user]) // Removed selectedJobId from dependencies to prevent re-runs on selection change
 
   // Handle job selection change
-  const handleJobSelect = (jobId: string | 'all') => {
-    setSelectedJobId(jobId)
-    setIsPopoverOpen(false)
-    if (jobId === 'all') {
-      // Get all job IDs for this company
-      const jobIds = jobPostings.map(j => j.id)
-      if (jobIds.length > 0) {
-        loadAllJobsAnalytics(jobIds)
-      }
-    } else {
-      loadJobAnalytics(jobId)
+  const handleJobSelect = useCallback((jobId: string) => {
+    if (!jobId) {
+      console.warn('handleJobSelect called with empty jobId')
+      return
     }
-  }
+    
+    console.log('Switching to job:', jobId, 'Available jobs:', allJobsData.length)
+    setIsPopoverOpen(false)
+    
+    // Normalize the jobId to string for consistent matching
+    const normalizedJobId = String(jobId)
+    
+    // If no jobs data loaded yet, wait for it to load
+    if (allJobsData.length === 0) {
+      console.log('Jobs data not loaded yet, loading...')
+      // Set the selection and let loadDashboardMetrics handle it
+      loadDashboardMetrics(normalizedJobId, true)
+      return
+    }
+    
+    // Find the selected job's data from already-loaded jobs
+    // Jobs in allJobsData now have normalized IDs as strings
+    const selectedJob = allJobsData.find((job: any) => {
+      const jobIdValue = String(job.id || job.job_posting_id || job.job_id)
+      return jobIdValue === normalizedJobId
+    })
+    
+    if (selectedJob) {
+      console.log('Found job in cache, updating metrics:', {
+        jobId: normalizedJobId,
+        applicant_count: selectedJob.applicant_count,
+        shortlisted_count: selectedJob.shortlisted_count,
+        flagged_count: selectedJob.flagged_count,
+        rejected_count: selectedJob.rejected_count
+      })
+      
+      // Update state immediately for instant UI feedback
+      setSelectedJobId(normalizedJobId)
+      setSelectedJobData(selectedJob)
+      
+      // Update metrics with selected job's data immediately
+      const jobApplicants = {
+        totalApplicants: Number(selectedJob.applicant_count || 0),
+        shortlistedApplicants: Number(selectedJob.shortlisted_count || 0),
+        flaggedApplicants: Number(selectedJob.flagged_count || 0),
+        rejectedApplicants: Number(selectedJob.rejected_count || 0),
+      }
+      
+      setMetrics(prev => ({
+        ...prev,
+        ...jobApplicants,
+      }))
+      
+      loadJobAnalytics(normalizedJobId)
+    } else {
+      // If job not found in cached data, refresh from API
+      console.warn('Job not found in cached data, refreshing from API...', {
+        jobId: normalizedJobId,
+        allJobsDataLength: allJobsData.length,
+        availableJobIds: allJobsData.map(j => String(j.id || j.job_posting_id || j.job_id))
+      })
+      // Refresh and select the job
+      loadDashboardMetrics(normalizedJobId, true)
+    }
+  }, [allJobsData, loadJobAnalytics, loadDashboardMetrics])
 
-  // Load metrics on component mount - only once when user is available
+  // Load metrics on component mount
   useEffect(() => {
     if (user) {
-      loadDashboardMetrics()
+      loadDashboardMetrics(null, false) // Don't preserve selection on initial load
     }
-  }, [user]) // Removed loadDashboardMetrics from deps to prevent re-renders
+  }, [user, loadDashboardMetrics])
+
+  // Refresh job data when needed (e.g., after creating a new job)
+  const refreshJobData = useCallback(async () => {
+    if (!user) return
+    
+    const token = localStorage.getItem('token')
+    if (!token) return
+    
+    try {
+      const response = await fetch('/api/job-postings', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        const jobs = data.jobs || []
+        const reportsData = data.reports || { totalReports: 0, readyReports: 0 }
+        setAllJobsData(jobs)
+        
+        // Update selected job data if it exists
+        if (selectedJobId) {
+          const selectedJob = jobs.find((job: any) => 
+            (job.id || job.job_posting_id || job.job_id) === selectedJobId
+          )
+          if (selectedJob) {
+            setSelectedJobData(selectedJob)
+            // Update metrics
+            setMetrics(prev => ({
+              ...prev,
+              totalReports: reportsData.totalReports,
+              readyReports: reportsData.readyReports,
+              totalApplicants: selectedJob.applicant_count || 0,
+              shortlistedApplicants: selectedJob.shortlisted_count || 0,
+              flaggedApplicants: selectedJob.flagged_count || 0,
+              rejectedApplicants: selectedJob.rejected_count || 0,
+            }))
+          }
+        } else {
+          // Update reports even if no job selected
+          setMetrics(prev => ({
+            ...prev,
+            totalReports: reportsData.totalReports,
+            readyReports: reportsData.readyReports,
+          }))
+        }
+      }
+    } catch (err) {
+      console.error('Error refreshing job data:', err)
+    }
+  }, [user, selectedJobId])
 
   // Skip real-time subscriptions for now to reduce loading
   // They can be re-enabled later if needed
@@ -318,22 +423,18 @@ export function OverviewSection() {
           
           {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row gap-3 flex-shrink-0">
-            <Button
-              onClick={() => router.push('/dashboard/jobs')}
-              className="bg-[#2D2DDD] hover:bg-[#2D2DDD]/90 text-white shadow-md hover:shadow-lg transition-all"
-            >
-              <Briefcase className="w-4 h-4 mr-2" />
-              Post New Job
-            </Button>
             {/* Job Selector Button */}
-            <div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                Select Job Post to View Analytics
+              </label>
             <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
               <PopoverTrigger asChild>
                 <Button
                   type="button"
                   variant="outline"
                   disabled={isLoading || jobPostings.length === 0}
-                  className="h-10 min-w-[200px] max-w-[280px] border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md transition-shadow"
+                  className="h-10 min-w-[200px] max-w-[280px] border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800 hover:!text-gray-900 dark:hover:!text-gray-100 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md transition-shadow"
                 >
                   <Briefcase className="w-4 h-4 mr-2 flex-shrink-0" />
                   <span className="max-w-[150px] truncate text-sm font-figtree font-medium">
@@ -341,10 +442,8 @@ export function OverviewSection() {
                       'Loading...'
                     ) : jobPostings.length === 0 ? (
                       'No Jobs Available'
-                    ) : selectedJobId === 'all' ? (
-                      'All Job Posts'
                     ) : (
-                      jobPostings.find(j => j.id === selectedJobId)?.job_title || 'Select Job'
+                      jobPostings.find(j => String(j.id) === String(selectedJobId))?.job_title || 'Select Job'
                     )}
                   </span>
                   <ChevronDown className="w-4 h-4 ml-2 flex-shrink-0" />
@@ -353,33 +452,24 @@ export function OverviewSection() {
               {jobPostings.length > 0 && (
                 <PopoverContent className="w-72 p-2 z-[100]" align="end">
                   <div className="space-y-1 max-h-[300px] overflow-y-auto">
-                    <button
-                      type="button"
-                      onClick={() => handleJobSelect('all')}
-                      className={cn(
-                        "w-full text-left px-3 py-2 rounded-md text-sm font-figtree transition-colors",
-                        selectedJobId === 'all'
-                          ? "bg-[#2D2DDD] text-white"
-                          : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                      )}
-                    >
-                      All Job Posts
-                    </button>
                     {jobPostings.map((job) => (
                       <button
                         type="button"
                         key={job.id}
-                        onClick={() => handleJobSelect(job.id)}
+                        onClick={() => {
+                          console.log('Dropdown clicked for job:', job.id, 'Title:', job.job_title)
+                          handleJobSelect(String(job.id))
+                        }}
                         className={cn(
                           "w-full text-left px-3 py-2 rounded-md text-sm font-figtree transition-colors",
-                          selectedJobId === job.id
+                          String(selectedJobId) === String(job.id)
                             ? "bg-[#2D2DDD] text-white"
                             : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                         )}
                       >
                         <div className="flex items-center justify-between">
                           <span className="truncate">{job.job_title}</span>
-                          {job.status === 'active' && (
+                          {(job.status?.toUpperCase() === 'ACTIVE' || job.status === 'active') && (
                             <span className="ml-2 px-2 py-0.5 text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded flex-shrink-0">
                               Active
                             </span>
@@ -469,7 +559,7 @@ export function OverviewSection() {
                   <p className="text-xl font-bold text-blue-600 dark:text-blue-400 font-figtree">{metrics.totalApplicants}</p>
                 )}
                 <p className="text-xs text-gray-600 dark:text-gray-400 font-figtree font-light">
-                  {selectedJobId === 'all' ? 'Across all job postings' : 'For selected job'}
+                  For selected job
                 </p>
               </div>
               <div className="text-center">
@@ -581,7 +671,7 @@ export function OverviewSection() {
               >
                 <Card className="hover:shadow-xl transition-all duration-300 cursor-pointer h-full bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 hover:border-[#2D2DDD] dark:hover:border-[#2D2DDD]">
                   <CardContent className="p-6 text-center">
-                    <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform shadow-lg">
+                    <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-[#2D2DDD] to-[#2D2DDD]/80 flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform shadow-lg">
                       <BarChart3 className="w-8 h-8 text-white" />
                     </div>
                     <h3 className="text-base font-semibold mb-2 text-gray-900 dark:text-white">View Reports</h3>
