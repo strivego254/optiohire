@@ -11,7 +11,10 @@ import { JobPosting } from '@/types'
 
 interface InterviewData extends JobPosting {
   interview_date?: string
+  meeting_link?: string
   google_calendar_link?: string
+  candidateName?: string
+  candidateEmail?: string
   applicantCount: number
   upcomingInterviews: number
   applicantStats: {
@@ -250,16 +253,16 @@ export function InterviewsSection() {
                                     <Calendar className="w-4 h-4" />
                                     {dateInfo.date} at {dateInfo.time}
                                   </div>
-                                  {(interview as any).candidateName && (
+                                  {interview.candidateName && (
                                     <div className="flex items-center gap-1">
                                       <User className="w-4 h-4" />
-                                      {(interview as any).candidateName}
+                                      {interview.candidateName}
                                     </div>
                                   )}
                                 </div>
-                                {(interview as any).candidateEmail && (
+                                {interview.candidateEmail && (
                                   <p className="text-sm text-muted-foreground font-figtree font-light">
-                                    {(interview as any).candidateEmail}
+                                    {interview.candidateEmail}
                                   </p>
                                 )}
                               </div>
