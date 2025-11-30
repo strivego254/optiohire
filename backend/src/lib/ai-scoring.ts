@@ -1,4 +1,4 @@
-import Groq from 'groq-sdk'
+import { GoogleGenerativeAI } from '@google/generative-ai'
 import { logger } from '../utils/logger.js'
 
 export interface ScoringResult {
@@ -25,27 +25,27 @@ export interface ScoringInput {
 }
 
 export class AIScoringEngine {
-  private groqClient: Groq | null = null
-  private useGroq: boolean = false
+  private geminiClient: GoogleGenerativeAI | null = null
+  private useGemini: boolean = false
 
   constructor() {
-    // Initialize Groq
-    const groqKey = this.getGroqApiKey()
-    if (groqKey) {
-      this.groqClient = new Groq({ apiKey: groqKey })
-      this.useGroq = true
-      logger.info('Groq API initialized successfully for AI scoring')
+    // Initialize Gemini
+    const geminiKey = this.getGeminiApiKey()
+    if (geminiKey) {
+      this.geminiClient = new GoogleGenerativeAI(geminiKey)
+      this.useGemini = true
+      logger.info('Gemini API initialized successfully for AI scoring')
     } else {
-      this.useGroq = false
-      logger.warn('No Groq API key found, will use fallback rule-based scoring')
+      this.useGemini = false
+      logger.warn('No Gemini API key found, will use fallback rule-based scoring')
     }
   }
 
   /**
-   * Get Groq API key
+   * Get Gemini API key
    */
-  private getGroqApiKey(): string | null {
-    return process.env.GROQ_API_KEY || null
+  private getGeminiApiKey(): string | null {
+    return process.env.GEMINI_API_KEY || null
   }
 
   /**
@@ -138,27 +138,33 @@ Remember: You are evaluating candidates for ${company.company_name || 'this comp
    * Output: { score: 0-100, status: "SHORTLIST" | "FLAGGED" | "REJECTED", reasoning: string }
    */
   async scoreCandidate(input: ScoringInput): Promise<ScoringResult> {
-    const groqModelName = process.env.SCORING_MODEL || process.env.SCORING_GROQ_MODEL || 'llama-3.3-70b-versatile'
+    const geminiModelName = process.env.SCORING_MODEL || 'gemini-2.0-flash'
 
-    // Use Groq for scoring
-    if (this.useGroq && this.groqClient) {
+    // Use Gemini for scoring
+    if (this.useGemini && this.geminiClient) {
       try {
-        logger.info(`Using Groq model ${groqModelName} for scoring`)
+        logger.info(`Using Gemini model ${geminiModelName} for scoring`)
         const prompt = this.buildScoringPrompt(input)
         const systemInstruction = this.buildSystemInstruction(input)
         
-        const completion = await this.groqClient.chat.completions.create({
-          messages: [
-            { role: 'system', content: systemInstruction },
-            { role: 'user', content: prompt }
-          ],
-          model: groqModelName,
-          temperature: 0.7,
-          response_format: { type: 'json_object' }
+        const model = this.geminiClient.getGenerativeModel({ 
+          model: geminiModelName,
+          systemInstruction: systemInstruction
         })
         
-        const content = completion.choices[0]?.message?.content || '{}'
-        const parsed = JSON.parse(content) as { score: number; status: string; reasoning: string }
+        const result = await model.generateContent(prompt)
+        const response = await result.response
+        const content = response.text() || '{}'
+        
+        // Extract JSON from response (handle markdown code blocks if present)
+        let jsonContent = content.trim()
+        if (jsonContent.startsWith('```json')) {
+          jsonContent = jsonContent.replace(/^```json\s*/, '').replace(/\s*```$/, '')
+        } else if (jsonContent.startsWith('```')) {
+          jsonContent = jsonContent.replace(/^```\s*/, '').replace(/\s*```$/, '')
+        }
+        
+        const parsed = JSON.parse(jsonContent) as { score: number; status: string; reasoning: string }
 
         // Validate and normalize
         const score = Math.max(0, Math.min(100, Math.round(parsed.score)))
@@ -169,24 +175,24 @@ Remember: You are evaluating candidates for ${company.company_name || 'this comp
         else if (score >= 50) status = 'FLAGGED'
         else status = 'REJECTED'
 
-        logger.info(`Scoring successful with Groq ${groqModelName}, score: ${score}, status: ${status}`)
+        logger.info(`Scoring successful with Gemini ${geminiModelName}, score: ${score}, status: ${status}`)
         return {
           score,
           status,
           reasoning: parsed.reasoning || 'No reasoning provided'
         }
       } catch (error: any) {
-        logger.error(`Groq scoring failed: ${error?.message || String(error)}, falling back to rule-based scoring`)
+        logger.error(`Gemini scoring failed: ${error?.message || String(error)}, falling back to rule-based scoring`)
       }
     }
 
     // Fallback to rule-based scoring
-    logger.warn('Groq API not available, using rule-based fallback scoring')
+    logger.warn('Gemini API not available, using rule-based fallback scoring')
     return this.fallbackScoring(input)
   }
 
   private buildScoringPrompt(input: ScoringInput): string {
-    // Extract FULL CV text - Groq models support large context windows
+    // Extract FULL CV text - Gemini models support large context windows
     // Using 50,000 characters as a safe limit (approximately 12,500 tokens) to leave room for prompt
     const maxCvLength = 50000
     const cvText = input.cvText.length > maxCvLength 
