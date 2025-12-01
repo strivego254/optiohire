@@ -1,4 +1,4 @@
-import Groq from 'groq-sdk'
+import { GoogleGenerativeAI } from '@google/generative-ai'
 
 type ParsedResume = {
   personal?: { name?: string; email?: string; phone?: string }
@@ -11,14 +11,14 @@ type ParsedResume = {
 }
 
 /**
- * Get Groq API key
+ * Get Gemini API key
  */
-function getGroqApiKey(): string | null {
-  return process.env.GROQ_API_KEY || null
+function getGeminiApiKey(): string | null {
+  return process.env.GEMINI_API_KEY || null
 }
 
 export async function parseResumeText(text: string): Promise<ParsedResume> {
-  const apiKey = getGroqApiKey()
+  const apiKey = getGeminiApiKey()
   if (!apiKey) {
     // Fallback minimal heuristic parse
     return {
@@ -33,30 +33,36 @@ export async function parseResumeText(text: string): Promise<ParsedResume> {
   }
 
   try {
-    const groq = new Groq({ apiKey })
-    const model = process.env.RESUME_PARSER_MODEL || 'llama-3.3-70b-versatile'
+    const genAI = new GoogleGenerativeAI(apiKey)
+    const model = process.env.RESUME_PARSER_MODEL || 'gemini-2.0-flash'
     
-    const systemMessage = `You are a resume parsing engine. Extract JSON with keys:
+    const systemInstruction = `You are a resume parsing engine. Extract JSON with keys:
 personal{name,email,phone}, education[{school,degree,year}], experience[{company,role,start,end,summary}],
 skills[string[]], links{github,linkedin,portfolio[string[]]}, awards[string[]], projects[{name,description,link}].
 Return ONLY strict JSON, no markdown formatting.`
 
     const prompt = `Resume Text:\n${text}\n---\nExtract the structured JSON now.`
 
-    const completion = await groq.chat.completions.create({
-      messages: [
-        { role: 'system', content: systemMessage },
-        { role: 'user', content: prompt }
-      ],
+    const geminiModel = genAI.getGenerativeModel({ 
       model: model,
-      temperature: 0.3,
-      response_format: { type: 'json_object' }
+      systemInstruction: systemInstruction
     })
     
-    const content = completion.choices[0]?.message?.content || '{}'
+    const result = await geminiModel.generateContent(prompt)
+    const response = await result.response
+    let content = response.text() || '{}'
+    
+    // Extract JSON from response (handle markdown code blocks if present)
+    content = content.trim()
+    if (content.startsWith('```json')) {
+      content = content.replace(/^```json\s*/, '').replace(/\s*```$/, '')
+    } else if (content.startsWith('```')) {
+      content = content.replace(/^```\s*/, '').replace(/\s*```$/, '')
+    }
+    
     return JSON.parse(content) as ParsedResume
   } catch (error) {
-    console.error('Groq resume parsing failed:', error)
+    console.error('Gemini resume parsing failed:', error)
     return {
       personal: {},
       skills: [],
