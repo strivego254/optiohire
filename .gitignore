@@ -39,6 +39,8 @@ build/
 .next/
 **/.next/
 out/
+*.tsbuildinfo
+**/*.tsbuildinfo
 
 # Coverage
 coverage/
