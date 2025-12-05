@@ -21,7 +21,7 @@ interface AuthUser {
 interface AuthContextType {
   user: null | AuthUser
   loading: boolean
-  signUp: (username: string, name: string, email: string, password: string, company_role: string, organization_name: string, company_email: string, hr_email: string, hiring_manager_email: string) => Promise<{ error: null | { message: string } }>
+  signUp: (name: string, email: string, password: string, company_role: string, organization_name: string, company_email: string, hiring_manager_email: string) => Promise<{ error: null | { message: string } }>
   signIn: (email: string, password: string) => Promise<{ error: null | { message: string } }>
   signOut: () => Promise<void>
 }
@@ -159,7 +159,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loadUserProfile()
   }, [])
 
-  const signUp = async (username: string, name: string, email: string, password: string, company_role: string, organization_name: string, company_email: string, hr_email: string, hiring_manager_email: string) => {
+  const signUp = async (name: string, email: string, password: string, company_role: string, organization_name: string, company_email: string, hiring_manager_email: string) => {
     try {
       setLoading(true)
       // Use Next.js API route instead of external backend
@@ -167,14 +167,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          username, 
           name, 
           email, 
           password, 
           company_role, 
           company_name: organization_name, 
           company_email, 
-          hr_email, 
           hiring_manager_email 
         })
       })
@@ -185,7 +183,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (data?.token) {
         localStorage.setItem('token', data.token)
         setUser({ 
-          username: data?.user?.username || username,
+          username: data?.user?.username || null,
           name: data?.user?.name || name,
           email: email.toLowerCase(),
           id: data?.user?.id || data?.user?.user_id, // Support both formats
@@ -196,7 +194,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           companyId: data?.company?.company_id || data?.user?.companyId || null,
           companyName: data?.company?.company_name || data?.user?.companyName || organization_name,
           companyEmail: data?.company?.company_email || data?.user?.companyEmail || company_email,
-          hrEmail: data?.company?.hr_email || data?.user?.hrEmail || hr_email,
+          hrEmail: data?.company?.hr_email || data?.user?.hrEmail || null,
           hiringManagerEmail: data?.company?.hiring_manager_email || data?.user?.hiringManagerEmail || hiring_manager_email
         })
       }

@@ -13,7 +13,6 @@ import { Eye, EyeOff, ArrowLeft } from 'lucide-react'
 import AnimatedShaderBackground from '@/components/ui/animated-shader-background'
 
 const signUpSchema = z.object({
-  username: z.string().min(3, 'Username must be at least 3 characters').max(50, 'Username must be less than 50 characters').regex(/^[a-zA-Z0-9_]+$/, 'Username can only contain letters, numbers, and underscores'),
   name: z.string().min(2, 'Name must be at least 2 characters').max(100, 'Name must be less than 100 characters'),
   email: z.string().email('Please enter a valid email address'),
   password: z.string()
@@ -28,7 +27,6 @@ const signUpSchema = z.object({
   }),
   organization_name: z.string().min(2, 'Organization name must be at least 2 characters').max(255, 'Organization name is too long'),
   company_email: z.string().email('Please enter a valid company email address'),
-  hr_email: z.string().email('Please enter a valid HR email address'),
   hiring_manager_email: z.string().email('Please enter a valid hiring manager email address'),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
@@ -59,14 +57,12 @@ export default function SignUpPage() {
 
     try {
       const { error } = await signUp(
-        data.username,
         data.name,
         data.email, 
         data.password, 
         data.company_role,
         data.organization_name, 
         data.company_email, 
-        data.hr_email,
         data.hiring_manager_email
       )
       
@@ -89,25 +85,28 @@ export default function SignUpPage() {
   }
 
   return (
-    <div className="w-full min-h-screen bg-black flex items-center justify-center p-4 py-8 relative">
+    <div className="w-full min-h-screen bg-black flex items-start justify-center p-4 pt-14 pb-8 relative">
       <AnimatedShaderBackground />
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        className="flex flex-col md:flex-row w-full max-w-5xl min-h-[600px] max-h-[90vh] bg-white rounded-3xl shadow-2xl overflow-hidden relative z-10"
-      >
+      <div className="relative w-full max-w-5xl mt-6">
+        {/* Top Center Button - Positioned above border line */}
+        <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 z-30">
+          <button
+            onClick={() => router.push('/')}
+            className="px-4 py-2 bg-white rounded-full flex items-center gap-2 hover:bg-gray-100 transition-all text-gray-900 font-figtree text-sm shadow-lg border border-gray-200"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Return Back
+          </button>
+        </div>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="flex flex-col md:flex-row w-full min-h-[600px] max-h-[90vh] bg-white rounded-3xl shadow-2xl overflow-hidden border border-white relative z-10"
+        >
+
         {/* Left Panel */}
         <div className="flex-1 relative overflow-hidden hidden md:block">
-          <div className="absolute top-6 left-6 z-10">
-            <button
-              onClick={() => router.push('/')}
-              className="w-10 h-10 bg-black/20 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-black/30 transition-all"
-            >
-              <ArrowLeft className="w-5 h-5 text-white" />
-            </button>
-          </div>
-
           <div className="absolute inset-0">
             <Image
               src="/assets/images/modern logo image (2).png"
@@ -124,15 +123,6 @@ export default function SignUpPage() {
         <div className="flex-1 p-8 flex flex-col relative overflow-y-auto backdrop-blur-xl bg-white/80 border-l border-white/20">
           {/* Glassmorphism overlay */}
           <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-white/30 to-white/20 pointer-events-none rounded-r-3xl" />
-          {/* Mobile back button */}
-          <div className="md:hidden absolute top-6 left-6 z-20">
-            <button
-              onClick={() => router.push('/')}
-              className="w-10 h-10 bg-black/20 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-black/30 transition-all"
-            >
-              <ArrowLeft className="w-5 h-5 text-white" />
-            </button>
-          </div>
 
           <div className="relative z-10">
           <div className="mb-6 flex-shrink-0">
@@ -146,27 +136,6 @@ export default function SignUpPage() {
           </div>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 flex-1">
-            {/* Username Field */}
-            <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2 font-figtree">
-                Username <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                id="username"
-                placeholder="Enter your username"
-                {...register('username')}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all font-figtree bg-white text-gray-900 placeholder-gray-500 text-sm"
-                required
-              />
-              {errors.username && (
-                <p className="text-sm text-red-500 mt-1 font-figtree">{errors.username.message}</p>
-              )}
-              <p className="text-xs text-gray-500 mt-1 font-figtree">
-                Letters, numbers, and underscores only (3-50 characters)
-              </p>
-            </div>
-
             {/* Name Field */}
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2 font-figtree">
@@ -334,27 +303,6 @@ export default function SignUpPage() {
                 </p>
               </div>
 
-              {/* HR Email Field */}
-              <div className="mb-4">
-                <label htmlFor="hr_email" className="block text-sm font-medium text-gray-700 mb-2 font-figtree">
-                  HR Email <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="email"
-                  id="hr_email"
-                  placeholder="hr@example.com"
-                  {...register('hr_email')}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all font-figtree bg-white text-gray-900 placeholder-gray-500 text-sm"
-                  required
-                />
-                {errors.hr_email && (
-                  <p className="text-sm text-red-500 mt-1 font-figtree">{errors.hr_email.message}</p>
-                )}
-                <p className="text-xs text-gray-500 mt-1 font-figtree">
-                  This will be used for receiving job applications and notifications
-                </p>
-              </div>
-
               {/* Hiring Manager Email Field */}
               <div>
                 <label htmlFor="hiring_manager_email" className="block text-sm font-medium text-gray-700 mb-2 font-figtree">
@@ -396,6 +344,7 @@ export default function SignUpPage() {
           </div>
         </div>
       </motion.div>
+      </div>
     </div>
   )
 }

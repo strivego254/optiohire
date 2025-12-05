@@ -54,26 +54,28 @@ export default function SignInPage() {
   }
 
   return (
-    <div className="w-full h-full min-h-screen bg-black flex items-center justify-center p-4 relative">
+    <div className="w-full min-h-screen bg-black flex items-start justify-center p-4 pt-14 pb-8 relative">
       <AnimatedShaderBackground />
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        className="flex flex-col md:flex-row w-full max-w-5xl h-auto md:h-[600px] bg-white rounded-3xl shadow-2xl overflow-hidden border border-white relative z-10"
-      >
-        {/* Left Panel */}
-        <div className="flex-1 relative overflow-hidden hidden md:block">
-          <div className="absolute top-6 left-6 z-10">
-            <button
-              onClick={() => router.push('/')}
-              className="w-10 h-10 bg-black/20 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-black/30 transition-all"
-            >
-              <ArrowLeft className="w-5 h-5 text-white" />
-            </button>
-          </div>
-
-          <div className="absolute inset-0">
+      <div className="relative w-full max-w-5xl mt-6">
+        {/* Top Center Button - Positioned above border line */}
+        <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 z-30">
+          <button
+            onClick={() => router.push('/')}
+            className="px-4 py-2 bg-white rounded-full flex items-center gap-2 hover:bg-gray-100 transition-all text-gray-900 font-figtree text-sm shadow-lg border border-gray-200"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Return Back
+          </button>
+        </div>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="flex flex-col md:flex-row w-full min-h-[600px] max-h-[90vh] bg-white rounded-3xl shadow-2xl overflow-hidden border border-white relative z-10"
+        >
+          {/* Left Panel */}
+          <div className="flex-1 relative overflow-hidden hidden md:block">
+            <div className="absolute inset-0">
             <Image
               src="/assets/images/modern logo image (2).png"
               alt="HR Recruitment"
@@ -85,21 +87,12 @@ export default function SignInPage() {
           </div>
         </div>
 
-        {/* Right Panel */}
-        <div className="flex-1 p-8 flex flex-col justify-center relative backdrop-blur-xl bg-white/80 border-l border-white/20">
-          {/* Glassmorphism overlay */}
-          <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-white/30 to-white/20 pointer-events-none rounded-r-3xl" />
-          {/* Mobile back button */}
-          <div className="md:hidden absolute top-6 left-6 z-20">
-            <button
-              onClick={() => router.push('/')}
-              className="w-10 h-10 bg-black/20 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-black/30 transition-all"
-            >
-              <ArrowLeft className="w-5 h-5 text-white" />
-            </button>
-          </div>
+          {/* Right Panel */}
+          <div className="flex-1 p-8 flex flex-col justify-center relative overflow-y-auto backdrop-blur-xl bg-white/80 border-l border-white/20">
+            {/* Glassmorphism overlay */}
+            <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-white/30 to-white/20 pointer-events-none rounded-r-3xl" />
 
-          <div className="relative z-10">
+            <div className="relative z-10">
           <div className="mb-6">
             <h1 className="text-4xl sm:text-5xl md:text-6xl font-extralight font-figtree leading-[1.05] tracking-tight text-gray-900 mb-2">Welcome Back</h1>
             <p className="text-gray-600 font-figtree">
@@ -179,6 +172,7 @@ export default function SignInPage() {
           </div>
         </div>
       </motion.div>
+      </div>
     </div>
   )
 }

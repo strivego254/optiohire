@@ -30,6 +30,8 @@ import {
   ApplicantMetricsSlice,
   EMPTY_APPLICANT_METRICS,
 } from '@/utils/analytics'
+import { ProductTour, TourStep } from '@/components/ui/product-tour'
+import { Sparkles } from 'lucide-react'
 
 interface DashboardMetrics {
   activeJobs: number
@@ -91,6 +93,7 @@ export function OverviewSection() {
   const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false)
   const [isPopoverOpen, setIsPopoverOpen] = useState(false)
   const [selectedJobData, setSelectedJobData] = useState<any>(null)
+  const [isTourOpen, setIsTourOpen] = useState(false)
 
   // Load job-specific analytics - simplified to skip Supabase stub calls
   const loadJobAnalytics = useCallback(async (jobId: string, options?: { skipLoadingState?: boolean }) => {
@@ -340,6 +343,8 @@ export function OverviewSection() {
     }
   }, [allJobsData, loadJobAnalytics, loadDashboardMetrics])
 
+
+
   // Load metrics on component mount
   useEffect(() => {
     if (user) {
@@ -445,8 +450,101 @@ export function OverviewSection() {
     },
   ]
 
+  const tourSteps: TourStep[] = [
+    {
+      id: 'dashboard-overview-title',
+      target: '[data-tour="dashboard-overview-title"]',
+      title: 'Dashboard Overview',
+      content: 'Welcome to your recruitment dashboard! This section provides a comprehensive view of your hiring pipeline and key performance metrics.',
+      position: 'bottom',
+    },
+    {
+      id: 'job-selector',
+      target: '[data-tour="job-selector"]',
+      title: 'Job Post Selector',
+      content: 'Use this dropdown to select a specific job posting and view its detailed analytics. The metrics below will update based on your selection.',
+      position: 'bottom',
+    },
+    {
+      id: 'active-jobs',
+      target: '[data-tour="active-jobs"]',
+      title: 'Active Jobs',
+      content: 'This metric shows the number of currently active job postings. Active jobs are open for applications and visible to candidates.',
+      position: 'bottom',
+    },
+    {
+      id: 'total-jobs',
+      target: '[data-tour="total-jobs"]',
+      title: 'Total Jobs',
+      content: 'View the total number of job postings you have created, including both active and inactive positions.',
+      position: 'bottom',
+    },
+    {
+      id: 'reports-generated',
+      target: '[data-tour="reports-generated"]',
+      title: 'Reports Generated',
+      content: 'Track the total number of analytics reports that have been generated for your recruitment activities.',
+      position: 'bottom',
+    },
+    {
+      id: 'ready-reports',
+      target: '[data-tour="ready-reports"]',
+      title: 'Ready Reports',
+      content: 'See how many reports are ready for review. These reports contain insights about your hiring process and candidate analytics.',
+      position: 'bottom',
+    },
+    {
+      id: 'applicant-analytics-title',
+      target: '[data-tour="applicant-analytics-title"]',
+      title: 'Applicant Analytics Overview',
+      content: 'This section provides a detailed breakdown of applicant statuses for the selected job posting. Monitor your recruitment pipeline at a glance.',
+      position: 'bottom',
+    },
+    {
+      id: 'total-applicants',
+      target: '[data-tour="total-applicants"]',
+      title: 'Total Applicants',
+      content: 'The total number of applicants who have applied for the selected job posting. This metric updates based on your job selection.',
+      position: 'top',
+    },
+    {
+      id: 'shortlisted',
+      target: '[data-tour="shortlisted"]',
+      title: 'Shortlisted Candidates',
+      content: 'Candidates who have been shortlisted for further review. The percentage shows what portion of total applicants are shortlisted.',
+      position: 'top',
+    },
+    {
+      id: 'flagged',
+      target: '[data-tour="flagged"]',
+      title: 'Flagged Applicants',
+      content: 'Applicants that require your attention or review. These candidates may need additional screening or have specific concerns.',
+      position: 'top',
+    },
+    {
+      id: 'rejected',
+      target: '[data-tour="rejected"]',
+      title: 'Rejected Applicants',
+      content: 'The number of applicants who have been rejected. The percentage indicates what portion of total applicants were not selected.',
+      position: 'top',
+    },
+  ]
+
   return (
     <div className="space-y-8">
+      <ProductTour
+        steps={tourSteps}
+        isOpen={isTourOpen}
+        onClose={() => setIsTourOpen(false)}
+        onComplete={() => {
+          setIsTourOpen(false)
+          addNotification({
+            title: 'Tour completed',
+            description: 'You\'ve completed the dashboard overview tour!',
+            type: 'success',
+          })
+        }}
+      />
       {/* Welcome Section with Job Selector */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -457,9 +555,24 @@ export function OverviewSection() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 sm:gap-6">
           {/* Welcome Section */}
           <div className="flex-1 min-w-0">
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-semibold mb-2 text-gray-900 dark:text-white">
-              Dashboard Overview
-            </h1>
+            <div className="flex items-center gap-3 mb-2">
+              <h1 
+                data-tour="dashboard-overview-title"
+                className="text-2xl sm:text-3xl md:text-4xl font-semibold text-gray-900 dark:text-white"
+              >
+                Dashboard Overview
+              </h1>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsTourOpen(true)}
+                className="h-8 px-3 text-xs text-[#2D2DDD] hover:text-[#2424c0] hover:bg-[#2D2DDD]/10 border border-[#2D2DDD]/20 rounded-lg transition-all"
+                aria-label="Start product tour"
+              >
+                <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+                Take Tour
+              </Button>
+            </div>
             <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">
               Monitor your recruitment pipeline and track key metrics
             </p>
@@ -475,6 +588,7 @@ export function OverviewSection() {
             <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
               <PopoverTrigger asChild>
                 <Button
+                  data-tour="job-selector"
                   type="button"
                   variant="outline"
                   disabled={isLoading || jobPostings.length === 0}
@@ -558,16 +672,24 @@ export function OverviewSection() {
       {/* Metrics Grid */}
       {!isLoading && (
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-          {metricsData.map((metric, index) => (
-            <MetricCard
-              key={metric.title}
-              title={metric.title}
-              value={metric.value}
-              icon={metric.icon}
-              trend={metric.trend}
-              delay={index * 0.1}
-            />
-          ))}
+          {metricsData.map((metric, index) => {
+            const tourId = metric.title === 'Active Jobs' ? 'active-jobs' :
+                          metric.title === 'Total Jobs' ? 'total-jobs' :
+                          metric.title === 'Reports Generated' ? 'reports-generated' :
+                          metric.title === 'Ready Reports' ? 'ready-reports' : null
+            
+            return (
+              <div key={metric.title} data-tour={tourId || undefined}>
+                <MetricCard
+                  title={metric.title}
+                  value={metric.value}
+                  icon={metric.icon}
+                  trend={metric.trend}
+                  delay={index * 0.1}
+                />
+              </div>
+            )
+          })}
         </div>
       )}
 
@@ -578,10 +700,15 @@ export function OverviewSection() {
           transition={{ type: 'tween', duration: 0.4, delay: 0.4, ease: 'easeOut' }}
           className="gpu-accelerated"
       >
-        <Card className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
+        <Card 
+          data-tour="applicant-analytics-title"
+          className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800"
+        >
           <CardHeader className="pb-4">
             <div className="flex-1 min-w-0">
-              <CardTitle className="text-xl font-figtree font-extralight flex items-center gap-3 text-gray-900 dark:text-white mb-2">
+              <CardTitle 
+                className="text-xl font-figtree font-extralight flex items-center gap-3 text-gray-900 dark:text-white mb-2"
+              >
                 <Users className="w-5 h-5 text-[#2D2DDD] flex-shrink-0" />
                 Applicant Analytics Overview
               </CardTitle>
@@ -592,7 +719,7 @@ export function OverviewSection() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6">
-              <div className="text-center">
+              <div data-tour="total-applicants" className="text-center">
                 <div className="w-16 h-16 rounded-full bg-gradient-to-r from-blue-500 to-blue-600 flex items-center justify-center mx-auto mb-3">
                   <Users className="w-8 h-8 text-white" />
                 </div>
@@ -606,7 +733,7 @@ export function OverviewSection() {
                   For selected job
                 </p>
               </div>
-              <div className="text-center">
+              <div data-tour="shortlisted" className="text-center">
                 <div className="w-16 h-16 rounded-full bg-gradient-to-r from-green-500 to-green-600 flex items-center justify-center mx-auto mb-3">
                   <UserCheck className="w-8 h-8 text-white" />
                 </div>
@@ -620,7 +747,7 @@ export function OverviewSection() {
                   {metrics.totalApplicants > 0 ? Math.round((metrics.shortlistedApplicants / metrics.totalApplicants) * 100) : 0}% of total
                 </p>
               </div>
-              <div className="text-center">
+              <div data-tour="flagged" className="text-center">
                 <div className="w-16 h-16 rounded-full bg-gradient-to-r from-yellow-500 to-yellow-600 flex items-center justify-center mx-auto mb-3">
                   <AlertTriangle className="w-8 h-8 text-white" />
                 </div>
@@ -634,7 +761,7 @@ export function OverviewSection() {
                   Require review
                 </p>
               </div>
-              <div className="text-center">
+              <div data-tour="rejected" className="text-center">
                 <div className="w-16 h-16 rounded-full bg-gradient-to-r from-red-500 to-red-600 flex items-center justify-center mx-auto mb-3">
                   <UserX className="w-8 h-8 text-white" />
                 </div>
