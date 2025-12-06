@@ -13,14 +13,6 @@ const Animated3DShape = dynamic(() => import('@/components/ui/animated-3d-shape'
   loading: () => null,
 })
 
-const PricingSection = dynamic(() => import('@/components/ui/pricing-section'), {
-  ssr: true,
-  loading: () => (
-    <div className="min-h-[600px] bg-black flex items-center justify-center">
-      <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-    </div>
-  ),
-})
 
 const FinalCTASection = dynamic(() => import('@/components/ui/final-cta-section'), {
   ssr: false,
@@ -334,16 +326,6 @@ export default function HomePageContent() {
         </div>
       </section>
 
-      {/* Pricing Section */}
-      <section className="relative bg-black overflow-hidden pb-8 sm:pb-12 md:pb-16">
-        <Suspense fallback={
-          <div className="min-h-[600px] bg-black flex items-center justify-center">
-            <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-          </div>
-        }>
-          <PricingSection />
-        </Suspense>
-      </section>
 
       {/* Final CTA Section */}
       <Suspense fallback={null}>
