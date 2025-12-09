@@ -9,20 +9,14 @@ const SALT_ROUNDS = 10
 export async function signup(req: Request, res: Response) {
   const client = await pool.connect()
   try {
-    const { username, name, email, password, company_role, company_name, company_email, hr_email, hiring_manager_email } = req.body || {}
+    const { name, email, password, company_role, company_name, company_email, hr_email, hiring_manager_email } = req.body || {}
     
     // STRICT: Validate all required fields - ALL MANDATORY
-    if (!username || !name || !email || !password) {
-      return res.status(400).json({ error: 'Username, name, email, and password are required' })
+    if (!name || !email || !password) {
+      return res.status(400).json({ error: 'Name, email, and password are required' })
     }
     if (!company_role || !company_name || !company_email || !hr_email || !hiring_manager_email) {
       return res.status(400).json({ error: 'Company role, organization name, company email, HR email, and hiring manager email are all required' })
-    }
-    
-    // Validate username format
-    const usernameRegex = /^[a-zA-Z0-9_]+$/
-    if (!usernameRegex.test(username) || username.length < 3 || username.length > 50) {
-      return res.status(400).json({ error: 'Username must be 3-50 characters and contain only letters, numbers, and underscores' })
     }
     
     // Validate company_role
@@ -34,15 +28,6 @@ export async function signup(req: Request, res: Response) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!emailRegex.test(email) || !emailRegex.test(company_email) || !emailRegex.test(hr_email) || !emailRegex.test(hiring_manager_email)) {
       return res.status(400).json({ error: 'All email addresses must be valid' })
-    }
-
-    // Check if username already exists
-    const { rows: existingUsername } = await query<{ user_id: string }>(
-      `SELECT user_id FROM users WHERE username = $1`,
-      [username.toLowerCase()]
-    )
-    if (existingUsername.length > 0) {
-      return res.status(409).json({ error: 'Username already taken' })
     }
 
     // Check if email already exists
@@ -58,7 +43,7 @@ export async function signup(req: Request, res: Response) {
     await client.query('BEGIN')
 
     try {
-      // Create user with username, name, and company_role
+      // Create user with name and company_role
       const hash = await bcrypt.hash(password, SALT_ROUNDS)
       
       // Check which columns exist
@@ -66,10 +51,9 @@ export async function signup(req: Request, res: Response) {
         SELECT column_name 
         FROM information_schema.columns 
         WHERE table_name = 'users' 
-        AND column_name IN ('username', 'name', 'company_role')
+        AND column_name IN ('name', 'company_role')
       `)
       
-      const hasUsernameColumn = colCheck.some((r: any) => r.column_name === 'username')
       const hasNameColumn = colCheck.some((r: any) => r.column_name === 'name')
       const hasCompanyRoleColumn = colCheck.some((r: any) => r.column_name === 'company_role')
       
@@ -79,11 +63,6 @@ export async function signup(req: Request, res: Response) {
       const params: any[] = []
       let paramIndex = 1
       
-      if (hasUsernameColumn) {
-        columns.push('username')
-        values.push(`$${paramIndex++}`)
-        params.push(username.toLowerCase().trim())
-      }
       if (hasNameColumn) {
         columns.push('name')
         values.push(`$${paramIndex++}`)
@@ -170,7 +149,6 @@ export async function signup(req: Request, res: Response) {
         user: { 
           user_id: userId, 
           id: userId, // Also include as 'id' for frontend compatibility
-          username: username.toLowerCase().trim(),
           name: name.trim(),
           email: email.toLowerCase(),
           role: 'user',

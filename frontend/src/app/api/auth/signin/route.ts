@@ -74,11 +74,10 @@ export async function POST(request: NextRequest) {
       role: string
       is_active: boolean
       created_at: string
-      username?: string
       name?: string
       company_role?: string
     }>(
-      `SELECT user_id, password_hash, role, is_active, created_at, username, name, company_role 
+      `SELECT user_id, password_hash, role, is_active, created_at, name, company_role 
        FROM users 
        WHERE email = $1`,
       [email.toLowerCase()]
@@ -193,7 +192,6 @@ export async function POST(request: NextRequest) {
       user: {
         user_id: user.user_id,
         id: user.user_id, // Also include as 'id' for frontend compatibility
-        username: user.username || null,
         name: user.name || null,
         email: email.toLowerCase(),
         role: user.role,

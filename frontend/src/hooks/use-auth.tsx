@@ -7,7 +7,6 @@ interface AuthUser {
   id?: string
   created_at?: string
   role?: string
-  username?: string | null
   name?: string | null
   companyRole?: string | null
   hasCompany?: boolean
@@ -92,7 +91,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (resp.ok) {
             const userData = await resp.json()
             setUser({
-              username: userData.username || null,
               name: userData.name || null,
               email: userData.email,
               id: userData.id || userData.user_id,
@@ -108,11 +106,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             })
             
             // STRICT: If user has no company and is not admin, deny access
-            if (!userData.hasCompany && userData.role !== 'admin') {
+            // But be lenient - if companyId exists, assume hasCompany is true
+            if (!userData.hasCompany && !userData.companyId && userData.role !== 'admin') {
               console.error('Access denied: User has no company profile')
               localStorage.removeItem('token')
               setUser(null)
               // Redirect will be handled by dashboard guard
+            } else if (userData.companyId && !userData.hasCompany) {
+              // If companyId exists but hasCompany is false, set it to true
+              setUser({
+                ...userData,
+                hasCompany: true
+              })
             }
             } else if (resp.status === 401) {
               // Token invalid - clear it
@@ -163,6 +168,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setLoading(true)
       // Use Next.js API route instead of external backend
+      // hr_email is set to company_email since the form doesn't have a separate hr_email field
       const resp = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -173,6 +179,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           company_role, 
           company_name: organization_name, 
           company_email, 
+          hr_email: company_email, // Use company_email as hr_email
           hiring_manager_email 
         })
       })
@@ -183,7 +190,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (data?.token) {
         localStorage.setItem('token', data.token)
         setUser({ 
-          username: data?.user?.username || null,
           name: data?.user?.name || name,
           email: email.toLowerCase(),
           id: data?.user?.id || data?.user?.user_id, // Support both formats
@@ -194,7 +200,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           companyId: data?.company?.company_id || data?.user?.companyId || null,
           companyName: data?.company?.company_name || data?.user?.companyName || organization_name,
           companyEmail: data?.company?.company_email || data?.user?.companyEmail || company_email,
-          hrEmail: data?.company?.hr_email || data?.user?.hrEmail || null,
+          hrEmail: data?.company?.hr_email || data?.user?.hrEmail || company_email,
           hiringManagerEmail: data?.company?.hiring_manager_email || data?.user?.hiringManagerEmail || hiring_manager_email
         })
       }

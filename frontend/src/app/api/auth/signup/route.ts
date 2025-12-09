@@ -62,7 +62,6 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     const { 
-      username, 
       name, 
       email, 
       password, 
@@ -74,24 +73,15 @@ export async function POST(request: NextRequest) {
     } = body || {}
 
     // Validate all required fields
-    if (!username || !name || !email || !password) {
+    if (!name || !email || !password) {
       return NextResponse.json(
-        { error: 'Username, name, email, and password are required' },
+        { error: 'Name, email, and password are required' },
         { status: 400 }
       )
     }
     if (!company_role || !company_name || !company_email || !hr_email || !hiring_manager_email) {
       return NextResponse.json(
         { error: 'Company role, organization name, company email, HR email, and hiring manager email are all required' },
-        { status: 400 }
-      )
-    }
-
-    // Validate username format
-    const usernameRegex = /^[a-zA-Z0-9_]+$/
-    if (!usernameRegex.test(username) || username.length < 3 || username.length > 50) {
-      return NextResponse.json(
-        { error: 'Username must be 3-50 characters and contain only letters, numbers, and underscores' },
         { status: 400 }
       )
     }
@@ -117,28 +107,6 @@ export async function POST(request: NextRequest) {
     await client.query('BEGIN')
 
     try {
-      // Check if username already exists (if username column exists)
-      const { rows: usernameCheck } = await client.query(`
-        SELECT column_name 
-        FROM information_schema.columns 
-        WHERE table_name = 'users' AND column_name = 'username'
-      `)
-      
-      if (usernameCheck.length > 0) {
-        const existingUsernameResult = await client.query(
-          `SELECT user_id FROM users WHERE username = $1`,
-          [username.toLowerCase()]
-        )
-        const existingUsername = existingUsernameResult.rows as { user_id: string }[]
-        if (existingUsername.length > 0) {
-          await client.query('ROLLBACK')
-          return NextResponse.json(
-            { error: 'Username already taken' },
-            { status: 409 }
-          )
-        }
-      }
-
       // Check if email already exists
       const existingResult = await client.query(
         `SELECT user_id FROM users WHERE email = $1`,
@@ -161,10 +129,9 @@ export async function POST(request: NextRequest) {
         SELECT column_name 
         FROM information_schema.columns 
         WHERE table_name = 'users' 
-        AND column_name IN ('username', 'name', 'company_role')
+        AND column_name IN ('name', 'company_role')
       `)
       
-      const hasUsernameColumn = colCheck.some((r: any) => r.column_name === 'username')
       const hasNameColumn = colCheck.some((r: any) => r.column_name === 'name')
       const hasCompanyRoleColumn = colCheck.some((r: any) => r.column_name === 'company_role')
       
@@ -174,11 +141,6 @@ export async function POST(request: NextRequest) {
       const params: any[] = []
       let paramIndex = 1
       
-      if (hasUsernameColumn) {
-        columns.push('username')
-        values.push(`$${paramIndex++}`)
-        params.push(username.toLowerCase().trim())
-      }
       if (hasNameColumn) {
         columns.push('name')
         values.push(`$${paramIndex++}`)
@@ -275,7 +237,6 @@ export async function POST(request: NextRequest) {
           user: {
             user_id: userId,
             id: userId,
-            username: username.toLowerCase().trim(),
             name: name.trim(),
             email: email.toLowerCase(),
             role: 'user',
@@ -336,12 +297,6 @@ export async function POST(request: NextRequest) {
 
     // Check for unique constraint violations
     if (errorMessage.includes('unique') || errorMessage.includes('duplicate') || errorMessage.includes('already exists')) {
-      if (errorMessage.toLowerCase().includes('username')) {
-        return NextResponse.json(
-          { error: 'Username already taken' },
-          { status: 409 }
-        )
-      }
       if (errorMessage.toLowerCase().includes('email')) {
         return NextResponse.json(
           { error: 'Account with this email already exists' },

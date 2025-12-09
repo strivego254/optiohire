@@ -294,12 +294,15 @@ function DashboardContent() {
 
     // STRICT: Deny access if user has no company
     // After signup, hasCompany should be true, but handle undefined/null cases
-    if (user.hasCompany === false || (user.hasCompany === undefined && !user.companyId)) {
+    // Only redirect if explicitly false AND no companyId
+    if (user.hasCompany === false && !user.companyId) {
       console.error('Access denied: User has no company profile')
       localStorage.removeItem('token')
       router.push('/auth/signin?error=no_company')
       return
     }
+    // If hasCompany is undefined but companyId exists, allow access (company exists)
+    // This handles cases where hasCompany wasn't set but company was created
   }, [user, loading, router])
 
   // Sync active section with URL pathname
@@ -420,6 +423,8 @@ function DashboardContent() {
   }, [router])
 
   // Don't render until user is loaded and validated
+  // Only block if hasCompany is explicitly false AND no companyId exists
+  // If companyId exists, allow access even if hasCompany is undefined/false
   if (loading || !user || (user.role !== 'admin' && user.hasCompany === false && !user.companyId)) {
     return (
       <div className="min-h-screen flex items-center justify-center">

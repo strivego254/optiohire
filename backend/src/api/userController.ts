@@ -15,10 +15,9 @@ export async function getCurrentUser(req: AuthRequest, res: Response) {
       SELECT column_name 
       FROM information_schema.columns 
       WHERE table_name = 'users' 
-      AND column_name IN ('username', 'name', 'company_role')
+      AND column_name IN ('name', 'company_role')
     `)
     
-    const hasUsernameColumn = colCheck.some((r: any) => r.column_name === 'username')
     const hasNameColumn = colCheck.some((r: any) => r.column_name === 'name')
     const hasCompanyRoleColumn = colCheck.some((r: any) => r.column_name === 'company_role')
     
@@ -29,7 +28,6 @@ export async function getCurrentUser(req: AuthRequest, res: Response) {
       'is_active',
       'created_at',
       'updated_at',
-      hasUsernameColumn ? 'username' : 'NULL::text as username',
       hasNameColumn ? 'name' : 'NULL::text as name',
       hasCompanyRoleColumn ? 'company_role' : 'NULL::text as company_role'
     ].join(', ')
@@ -41,7 +39,6 @@ export async function getCurrentUser(req: AuthRequest, res: Response) {
       is_active: boolean
       created_at: string
       updated_at: string | null
-      username?: string | null
       name?: string | null
       company_role?: string | null
     }>(
@@ -116,7 +113,6 @@ export async function getCurrentUser(req: AuthRequest, res: Response) {
     return res.json({
       id: user.user_id,
       user_id: user.user_id,
-      username: user.username || null,
       name: user.name || null,
       email: user.email,
       role: user.role,

@@ -4,6 +4,7 @@ import { JobPostingRepository } from '../repositories/jobPostingRepository.js'
 import { CompanyRepository } from '../repositories/companyRepository.js'
 import { EmailService } from '../services/emailService.js'
 import { logger } from '../utils/logger.js'
+import { cleanJobTitle } from '../utils/jobTitle.js'
 import { z } from 'zod'
 
 const scheduleSchema = z.object({
@@ -76,14 +77,20 @@ export async function scheduleInterview(req: Request, res: Response) {
       interview_link: job.meeting_link
     })
 
-    // Send emails
-    const interviewDate = new Date(interviewTime).toLocaleString('en-US', {
-      weekday: 'long',
+    // Clean job title for email
+    const cleanedJobTitle = cleanJobTitle(job.job_title)
+
+    // Format interview date and time
+    const interviewDateObj = new Date(interviewTime)
+    const interviewDate = interviewDateObj.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
-      day: 'numeric',
+      day: 'numeric'
+    })
+    const interviewTimeFormatted = interviewDateObj.toLocaleTimeString('en-US', {
       hour: 'numeric',
-      minute: '2-digit'
+      minute: '2-digit',
+      hour12: true
     })
 
     // Generate company email for from address
@@ -93,32 +100,81 @@ export async function scheduleInterview(req: Request, res: Response) {
       company.company_name
     )
     
-    // Email candidate
+    const hrEmail = company.company_email || company.hr_email || 'hirebitapplications@gmail.com'
+    const candidateName = application.candidate_name || '[Candidate\'s Full Name]'
+    const companyName = company.company_name || '[Company Name]'
+    
+    // Email candidate - Final Interview Invitation
     await emailService.sendEmail({
       to: application.email,
       from: companyEmail,
-      subject: `Interview Scheduled - ${job.job_title}`,
+      subject: `Final Interview Invitation – ${cleanedJobTitle} at ${companyName}`,
       html: `
-        <h2>Interview Scheduled</h2>
-        <p>Hi ${application.candidate_name || 'Candidate'},</p>
-        <p>Your interview for <strong>${job.job_title}</strong> has been scheduled.</p>
-        <p><strong>Date & Time:</strong> ${interviewDate}</p>
-        <p><strong>Meeting Link:</strong> <a href="${job.meeting_link}">${job.meeting_link}</a></p>
-        <p>Best regards,<br>${company.company_name} Team</p>
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <p>Dear ${candidateName},</p>
+    
+    <p>Congratulations! After reviewing your application for the <strong>${cleanedJobTitle}</strong> position at <strong>${companyName}</strong>, we are pleased to inform you that you have been shortlisted for the next stage of our recruitment process.</p>
+    
+    <p>Your final interview has been scheduled as follows:</p>
+    
+    <p><strong>Interview Details:</strong></p>
+    <p><strong>Position:</strong> ${cleanedJobTitle}</p>
+    <p><strong>Company:</strong> ${companyName}</p>
+    <p><strong>Date:</strong> ${interviewDate}</p>
+    <p><strong>Time:</strong> ${interviewTimeFormatted}</p>
+    <p><strong>Meeting Link:</strong> <a href="${job.meeting_link}">${job.meeting_link}</a></p>
+    
+    <p>During this session, we will discuss your experience, your fit for the role, and the value you can bring to our team.</p>
+    
+    <p>If you have any questions before the interview or need to make changes, feel free to contact our HR team at <a href="mailto:${hrEmail}">${hrEmail}</a>.</p>
+    
+    <p>We look forward to meeting you and learning more about how you can contribute to our team. Thank you!</p>
+    
+    <p>Kind regards,<br>
+    <strong>Company Name:</strong> ${companyName}<br>
+    <strong>Company Email:</strong> ${hrEmail}</p>
+  </div>
+</body>
+</html>
       `,
-      text: `
-Interview Scheduled
+      text: `Dear ${candidateName},
 
-Hi ${application.candidate_name || 'Candidate'},
+Congratulations! After reviewing your application for the ${cleanedJobTitle} position at ${companyName}, we are pleased to inform you that you have been shortlisted for the next stage of our recruitment process.
 
-Your interview for ${job.job_title} has been scheduled.
+Your final interview has been scheduled as follows:
 
-Date & Time: ${interviewDate}
+Interview Details:
+
+Position: ${cleanedJobTitle}
+
+Company: ${companyName}
+
+Date: ${interviewDate}
+
+Time: ${interviewTimeFormatted}
+
 Meeting Link: ${job.meeting_link}
 
-Best regards,
-${company.company_name} Team
-      `
+During this session, we will discuss your experience, your fit for the role, and the value you can bring to our team.
+
+If you have any questions before the interview or need to make changes, feel free to contact our HR team at ${hrEmail}.
+
+We look forward to meeting you and learning more about how you can contribute to our team. Thank you!
+
+Kind regards,
+
+Company Name: ${companyName}
+
+Company Email: ${hrEmail}`
     })
 
     // Email HR

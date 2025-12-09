@@ -27,7 +27,6 @@ END $$;
 
 CREATE TABLE IF NOT EXISTS users (
   user_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  username text UNIQUE,
   name text,
   email text UNIQUE NOT NULL,
   password_hash text NOT NULL,
@@ -125,16 +124,16 @@ BEGIN
   END IF;
 END $$;
 
--- Add username column if it doesn't exist (for existing tables)
+-- Remove username column if it exists (migration to remove username)
 DO $$ 
 BEGIN
-  IF NOT EXISTS (
+  IF EXISTS (
     SELECT 1 FROM information_schema.columns 
     WHERE table_name = 'users' AND column_name = 'username'
   ) THEN
-    ALTER TABLE users ADD COLUMN username text UNIQUE;
-    CREATE INDEX IF NOT EXISTS idx_users_username ON users(username) WHERE username IS NOT NULL;
-    RAISE NOTICE 'Added username column to users table';
+    DROP INDEX IF EXISTS idx_users_username;
+    ALTER TABLE users DROP COLUMN username;
+    RAISE NOTICE 'Removed username column from users table';
   END IF;
 END $$;
 
@@ -196,7 +195,6 @@ END $$;
 
 -- Create indexes for users table
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
-CREATE INDEX IF NOT EXISTS idx_users_username ON users(username) WHERE username IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_users_name ON users(name) WHERE name IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_users_company_role ON users(company_role) WHERE company_role IS NOT NULL;
 

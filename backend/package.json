@@ -4,7 +4,8 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
-    "start": "node dist/server.js"
+    "start": "node dist/server.js",
+    "migrate:remove-username": "tsx src/db/migrations/run-remove-username.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.934.0",
