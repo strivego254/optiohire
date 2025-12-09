@@ -82,13 +82,13 @@ export function Footer() {
             <div className="flex items-center space-x-3">
               <Image
                 src="/assets/logo/white-logo.png"
-                alt="Hirebit logo"
+                alt="OptioHire logo"
                 width={120}
                 height={120}
                 className="h-12 w-12 md:h-14 md:w-14 object-contain"
                 priority
               />
-              <span className="text-white text-2xl sm:text-3xl font-figtree font-extralight">Hirebit</span>
+              <span className="text-white text-2xl sm:text-3xl font-figtree font-extralight">OptioHire</span>
             </div>
             <p className="text-xs sm:text-sm leading-relaxed text-gray-300 font-figtree font-light">
               The future of recruitment is here. Our AI-powered platform helps you find, screen, and hire the best talent faster than ever before.
@@ -167,7 +167,7 @@ export function Footer() {
         <div className="flex flex-col md:flex-row justify-end items-center text-xs sm:text-sm pb-4">
           {/* Copyright */}
           <p className="text-center md:text-left text-gray-400 font-figtree font-light">
-            &copy; {new Date().getFullYear()} HR AI Agent. All rights reserved.
+            &copy; {new Date().getFullYear()} OptioHire. All rights reserved.
           </p>
         </div>
       </div>

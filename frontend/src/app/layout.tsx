@@ -30,15 +30,15 @@ const getMetadataBase = () => {
 
 const baseMetadata: Metadata = {
   metadataBase: getMetadataBase(),
-  title: 'AI-Powered Recruitment Platform | HR Recruitment AI Agent',
+  title: 'AI-Powered Recruitment Platform | OptioHire',
   description: 'Transform your hiring process with AI-powered recruitment platform. Hire 5x faster with 95% accuracy using intelligent automation, advanced analytics, and bias-free candidate screening.',
   keywords: ['AI recruitment', 'automated hiring', 'candidate screening', 'HR technology', 'recruitment software', 'hiring automation', 'talent acquisition', 'AI-powered HR'],
-  authors: [{ name: 'HR Recruitment AI Team' }],
+  authors: [{ name: 'OptioHire Team' }],
   openGraph: {
-    title: 'AI-Powered Recruitment Platform | HR Recruitment AI Agent',
+    title: 'AI-Powered Recruitment Platform | OptioHire',
     description: 'Transform your hiring process with AI-powered recruitment platform. Hire 5x faster with 95% accuracy using intelligent automation and advanced analytics.',
     type: 'website',
-    siteName: 'HR Recruitment AI Agent',
+    siteName: 'OptioHire',
   },
   twitter: {
     card: 'summary_large_image',

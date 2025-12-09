@@ -38,11 +38,11 @@ export function Navbar() {
         {/* Logo */}
         <div className="flex lg:flex-1">
           <Link href="/" className="-m-1.5 p-1.5 flex items-center">
-            <span className="sr-only">HR AI Agent</span>
+            <span className="sr-only">OptioHire</span>
             <div className="flex items-center space-x-2">
               <Image
                 src="/assets/logo/white-logo.png"
-                alt="HR AI Agent"
+                alt="OptioHire"
                 width={112}
                 height={112}
                 className="h-12 w-12 md:h-14 md:w-14 object-contain"
@@ -114,11 +114,11 @@ export function Navbar() {
           <div className="fixed top-0 right-0 bottom-auto z-50 w-full overflow-y-auto bg-white dark:bg-gray-900 px-6 py-6 sm:max-w-sm sm:ring-1 sm:ring-gray-900/10 rounded-[15px] max-h-[85vh] mt-4 shadow-2xl">
             <div className="flex items-center justify-between mb-4">
               <Link href="/" className="-m-1.5 p-1.5 flex items-center" onClick={() => setMobileMenuOpen(false)}>
-                <span className="sr-only">HR AI Agent</span>
+                <span className="sr-only">OptioHire</span>
                 <div className="flex items-center space-x-2">
                   <Image
                     src="/assets/logo/white-logo.png"
-                    alt="HR AI Agent"
+                    alt="OptioHire"
                     width={112}
                     height={112}
                     className="h-12 w-12 object-contain"

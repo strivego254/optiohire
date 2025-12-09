@@ -94,7 +94,7 @@ export function Sidebar({ activeSection, onSectionChange }: SidebarProps) {
               {mounted ? (
                 <Image
                   src={logoSrc}
-                  alt="Hirebit logo"
+                  alt="OptioHire logo"
                   fill
                   sizes="40px"
                   className="object-contain"
@@ -106,7 +106,7 @@ export function Sidebar({ activeSection, onSectionChange }: SidebarProps) {
             </div>
             {!isCollapsed && (
               <div className="flex-1 min-w-0">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">HireBit</h2>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">OptioHire</h2>
                 <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">HR Platform</p>
               </div>
             )}

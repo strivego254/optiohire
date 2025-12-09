@@ -376,7 +376,7 @@ export default function ContactPage() {
 
             <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4">
               <p className="text-xs font-figtree font-light text-gray-300">
-                Looking to automate interview scheduling? Ask about our autonomous agent pilots powered by <span className="text-white">HR AI Agent</span>.
+                Looking to automate interview scheduling? Ask about our autonomous agent pilots powered by <span className="text-white">OptioHire</span>.
               </p>
             </div>
           </motion.div>

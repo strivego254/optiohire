@@ -7,7 +7,7 @@ const host = process.env.SMTP_HOST || 'localhost'
 const port = Number(process.env.SMTP_PORT || 1025)
 const user = process.env.SMTP_USER || ''
 const pass = process.env.SMTP_PASS || ''
-const from = 'HireBit <hirebitapplications@gmail.com>'
+const from = 'OptioHire <hirebitapplications@gmail.com>'
 
 export const transporter = nodemailer.createTransport({
   host,
@@ -114,7 +114,7 @@ export async function sendInterviewScheduledEmails(params: InterviewEmailParams)
         meetingLink: params.meetingLink,
         candidateScore: 'N/A', // Could be passed if available
       })
-    : `Hi ${params.hr.name},\n\nAn interview has been scheduled:\n\nCandidate: ${params.candidate.name} (${params.candidate.email})\nJob: ${params.job.title}\nDate: ${formattedDate}\nMeeting Link: ${params.meetingLink}\n\nBest regards,\nHireBit`
+    : `Hi ${params.hr.name},\n\nAn interview has been scheduled:\n\nCandidate: ${params.candidate.name} (${params.candidate.email})\nJob: ${params.job.title}\nDate: ${formattedDate}\nMeeting Link: ${params.meetingLink}\n\nBest regards,\nOptioHire`
 
   const hrText = hrTextTemplate
     ? renderTemplate(hrTextTemplate, {
