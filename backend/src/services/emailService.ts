@@ -2,6 +2,7 @@ import nodemailer from 'nodemailer'
 import { logger } from '../utils/logger.js'
 import fs from 'fs/promises'
 import path from 'path'
+import { cleanJobTitle } from '../utils/jobTitle.js'
 
 export class EmailService {
   private transporter: nodemailer.Transporter
@@ -159,13 +160,15 @@ ${data.companyName || 'Hiring Team'}
     companyEmail?: string | null
     companyDomain?: string | null
     interviewLink: string | null
+    interviewDate?: string | null
+    interviewTime?: string | null
   }) {
     const hrEmail = data.companyEmail || 'hirebitapplications@gmail.com'
     const candidateName = data.candidateName || '[Candidate\'s Full Name]'
     const companyName = data.companyName || '[Company Name]'
-    const jobTitle = data.jobTitle || '[Job Title]'
+    const cleanedJobTitle = cleanJobTitle(data.jobTitle || '[Job Title]')
 
-    const subject = `Invitation to Interview – ${jobTitle} at ${companyName}`
+    const subject = `Final Interview Invitation – ${cleanedJobTitle} at ${companyName}`
     
     const html = `
 <!DOCTYPE html>
@@ -180,15 +183,22 @@ ${data.companyName || 'Hiring Team'}
   <div class="container">
     <p>Dear ${candidateName},</p>
     
-    <p><strong>Congratulations!</strong> After reviewing your application for the <strong>${jobTitle}</strong> position at <strong>${companyName}</strong>, we are pleased to inform you that you have been shortlisted for the next stage of our recruitment process.</p>
+    <p>Congratulations! After reviewing your application for the <strong>${cleanedJobTitle}</strong> position at <strong>${companyName}</strong>, we are pleased to inform you that you have been shortlisted for the next stage of our recruitment process.</p>
     
-    <p>We would like to invite you to an interview to discuss your experience, skills, and how they align with our company's goals.</p>
+    <p>Your final interview has been scheduled as follows:</p>
     
-    ${data.interviewLink ? `<p><strong>Interview Link:</strong> <a href="${data.interviewLink}">${data.interviewLink}</a></p>` : ''}
+    <p><strong>Interview Details:</strong></p>
+    <p><strong>Position:</strong> ${cleanedJobTitle}</p>
+    <p><strong>Company:</strong> ${companyName}</p>
+    ${data.interviewDate ? `<p><strong>Date:</strong> ${data.interviewDate}</p>` : ''}
+    ${data.interviewTime ? `<p><strong>Time:</strong> ${data.interviewTime}</p>` : ''}
+    ${data.interviewLink ? `<p><strong>Meeting Link:</strong> <a href="${data.interviewLink}">${data.interviewLink}</a></p>` : ''}
     
-    <p>If you have any questions or encounter any issues while scheduling your interview, please don't hesitate to contact our HR team at <a href="mailto:${hrEmail}">${hrEmail}</a>.</p>
+    <p>During this session, we will discuss your experience, your fit for the role, and the value you can bring to our team.</p>
     
-    <p>We look forward to meeting you and learning more about how you can contribute to our team.</p>
+    <p>If you have any questions before the interview or need to make changes, feel free to contact our HR team at <a href="mailto:${hrEmail}">${hrEmail}</a>.</p>
+    
+    <p>We look forward to meeting you and learning more about how you can contribute to our team. Thank you!</p>
     
     <p>Kind regards,<br>
     <strong>Company Name:</strong> ${companyName}<br>
@@ -200,17 +210,27 @@ ${data.companyName || 'Hiring Team'}
 
     const text = `Dear ${candidateName},
 
-Congratulations! After reviewing your application for the ${jobTitle} position at ${companyName}, we are pleased to inform you that you have been shortlisted for the next stage of our recruitment process.
+Congratulations! After reviewing your application for the ${cleanedJobTitle} position at ${companyName}, we are pleased to inform you that you have been shortlisted for the next stage of our recruitment process.
 
-We would like to invite you to an interview to discuss your experience, skills, and how they align with our company's goals.
+Your final interview has been scheduled as follows:
 
-${data.interviewLink ? `Interview Link: ${data.interviewLink}\n\n` : ''}If you have any questions or encounter any issues while scheduling your interview, please don't hesitate to contact our HR team at ${hrEmail}.
+Interview Details:
 
-We look forward to meeting you and learning more about how you can contribute to our team.
+Position: ${cleanedJobTitle}
+
+Company: ${companyName}
+
+${data.interviewDate ? `Date: ${data.interviewDate}\n` : ''}${data.interviewTime ? `Time: ${data.interviewTime}\n` : ''}${data.interviewLink ? `Meeting Link: ${data.interviewLink}\n` : ''}
+During this session, we will discuss your experience, your fit for the role, and the value you can bring to our team.
+
+If you have any questions before the interview or need to make changes, feel free to contact our HR team at ${hrEmail}.
+
+We look forward to meeting you and learning more about how you can contribute to our team. Thank you!
 
 Kind regards,
 
 Company Name: ${companyName}
+
 Company Email: ${hrEmail}`
 
     // Generate from email: use company_email, companyDomain, or fallback

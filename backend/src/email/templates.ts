@@ -1,5 +1,6 @@
 import { sendEmail } from './mailer.js'
 import { query } from '../db/index.js'
+import { cleanJobTitle } from '../utils/jobTitle.js'
 
 interface CompanyData {
   company_name: string
@@ -119,35 +120,52 @@ Company Email: ${hrEmail}`
       text: `Hi ${candidateName},\n\nThanks for applying. Your application is under review.\n\nBest,\n${companyName}`
     })
   } else if (opts.status === 'SHORTLIST') {
-    const subject = `Invitation to Interview – ${jobTitle} at ${companyName}`
+    const cleanedJobTitle = cleanJobTitle(jobTitle)
+    
+    const subject = `Final Interview Invitation – ${cleanedJobTitle} at ${companyName}`
     const text = `Dear ${candidateName},
 
-Congratulations! After reviewing your application for the ${jobTitle} position at ${companyName}, we are pleased to inform you that you have been shortlisted for the next stage of our recruitment process.
+Congratulations! After reviewing your application for the ${cleanedJobTitle} position at ${companyName}, we are pleased to inform you that you have been shortlisted for the next stage of our recruitment process.
 
-We would like to invite you to an interview to discuss your experience, skills, and how they align with our company's goals.
+Your final interview has been scheduled as follows:
 
-${opts.interviewLink ? `Interview Link: ${opts.interviewLink}\n\n` : ''}If you have any questions or encounter any issues while scheduling your interview, please don't hesitate to contact our HR team at ${hrEmail}.
+Interview Details:
 
-We look forward to meeting you and learning more about how you can contribute to our team.
+Position: ${cleanedJobTitle}
+
+Company: ${companyName}
+
+${opts.interviewLink ? `Meeting Link: ${opts.interviewLink}\n` : ''}
+During this session, we will discuss your experience, your fit for the role, and the value you can bring to our team.
+
+If you have any questions before the interview or need to make changes, feel free to contact our HR team at ${hrEmail}.
+
+We look forward to meeting you and learning more about how you can contribute to our team. Thank you!
 
 Kind regards,
 
 Company Name: ${companyName}
+
 Company Email: ${hrEmail}`
 
     const html = `
       <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto;">
         <p>Dear ${candidateName},</p>
         
-        <p><strong>Congratulations!</strong> After reviewing your application for the <strong>${jobTitle}</strong> position at <strong>${companyName}</strong>, we are pleased to inform you that you have been shortlisted for the next stage of our recruitment process.</p>
+        <p>Congratulations! After reviewing your application for the <strong>${cleanedJobTitle}</strong> position at <strong>${companyName}</strong>, we are pleased to inform you that you have been shortlisted for the next stage of our recruitment process.</p>
         
-        <p>We would like to invite you to an interview to discuss your experience, skills, and how they align with our company's goals.</p>
+        <p>Your final interview has been scheduled as follows:</p>
         
-        ${opts.interviewLink ? `<p><strong>Interview Link:</strong> <a href="${opts.interviewLink}">${opts.interviewLink}</a></p>` : ''}
+        <p><strong>Interview Details:</strong></p>
+        <p><strong>Position:</strong> ${cleanedJobTitle}</p>
+        <p><strong>Company:</strong> ${companyName}</p>
+        ${opts.interviewLink ? `<p><strong>Meeting Link:</strong> <a href="${opts.interviewLink}">${opts.interviewLink}</a></p>` : ''}
         
-        <p>If you have any questions or encounter any issues while scheduling your interview, please don't hesitate to contact our HR team at <a href="mailto:${hrEmail}">${hrEmail}</a>.</p>
+        <p>During this session, we will discuss your experience, your fit for the role, and the value you can bring to our team.</p>
         
-        <p>We look forward to meeting you and learning more about how you can contribute to our team.</p>
+        <p>If you have any questions before the interview or need to make changes, feel free to contact our HR team at <a href="mailto:${hrEmail}">${hrEmail}</a>.</p>
+        
+        <p>We look forward to meeting you and learning more about how you can contribute to our team. Thank you!</p>
         
         <p>Kind regards,<br>
         <strong>Company Name:</strong> ${companyName}<br>
