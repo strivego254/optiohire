@@ -25,7 +25,7 @@ export async function runDueSchedules(): Promise<void> {
           [row.job_posting_id]
         )
         
-        if (updateResult.rowCount && updateResult.rowCount > 0) {
+        if (updateResult.rows.length > 0) {
           logger.info(`Updated job ${row.job_posting_id} status to CLOSED (deadline passed)`)
           
           // Log audit entry
@@ -88,7 +88,7 @@ export async function startDeadlineStatusScheduler() {
             [job.job_posting_id]
           )
 
-          if (updateResult.rowCount && updateResult.rowCount > 0) {
+          if (updateResult.rows.length > 0) {
             logger.info(`Updated job ${job.job_posting_id} (${job.job_title}) status from ${job.status} to CLOSED`)
             
             // Log audit entry

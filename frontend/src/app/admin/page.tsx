@@ -300,14 +300,14 @@ export default function AdminDashboard() {
                     </p>
                   </div>
                   
-                  {user.username && (
+                  {(user as any).username && (
                     <div className="space-y-1">
                       <div className="flex items-center gap-2 text-sm font-medium text-[#2D2DDD] dark:text-[#2D2DDD]">
                         <User className="w-4 h-4" />
                         Username
                       </div>
                       <p className="text-purple-800 dark:text-purple-300 font-mono">
-                        @{user.username}
+                        @{(user as any).username}
                       </p>
                     </div>
                   )}
@@ -458,9 +458,9 @@ export default function AdminDashboard() {
                           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                             {user.name || 'No Name'}
                           </h3>
-                          {user.username && (
+                          {(user as any).username && (
                             <span className="text-sm text-gray-500 dark:text-gray-400 font-mono">
-                              @{user.username}
+                              @{(user as any).username}
                             </span>
                           )}
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -485,7 +485,7 @@ export default function AdminDashboard() {
                             <span>{user.email}</span>
                           </div>
                           
-                          {user.username && (
+                          {(user as any).username && (
                             <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
                               <User className="w-4 h-4" />
                               <span className="font-mono">@{user.username}</span>

@@ -24,10 +24,10 @@ export async function scheduleInterview(req: Request, res: Response) {
     
     const validation = scheduleSchema.safeParse(req.body)
     if (!validation.success) {
-      logger.warn('Invalid schedule interview request:', validation.error.errors)
+      logger.warn('Invalid schedule interview request:', { errors: validation.error.issues })
       return res.status(400).json({
         error: 'Invalid request body',
-        details: validation.error.errors
+        details: validation.error.issues
       })
     }
 

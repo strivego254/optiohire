@@ -22,7 +22,7 @@ export async function createJob(req: Request, res: Response) {
     if (!validation.success) {
       return res.status(400).json({
         error: 'Invalid request body',
-        details: validation.error.errors
+        details: validation.error.issues
       })
     }
 

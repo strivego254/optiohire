@@ -134,6 +134,10 @@ export class EmailReader {
           seen: false
         })
 
+        if (!messages || !Array.isArray(messages)) {
+          return
+        }
+
         for (const seq of messages) {
           try {
             const message = await this.client.fetchOne(seq, {
@@ -141,7 +145,7 @@ export class EmailReader {
               envelope: true
             })
 
-            if (message.source && message.envelope) {
+            if (message && message.source && message.envelope) {
               const subject = message.envelope.subject || ''
               
               // Check if email subject matches any active job posting title exactly
