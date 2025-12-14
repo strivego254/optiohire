@@ -4,6 +4,9 @@ import { motion } from 'framer-motion'
 import { GradientCard } from '@/components/ui/gradient-card'
 import { Card, CardContent } from '@/components/ui/card'
 import dynamic from 'next/dynamic'
+import Image from 'next/image'
+import { useState, useEffect, useRef } from 'react'
+import { cn } from '@/lib/utils'
 import {
   Brain,
   Users,
@@ -24,6 +27,10 @@ const Animated3DShape = dynamic(() => import('@/components/ui/animated-3d-shape'
 })
 
 export default function FeaturesPage() {
+  const featuresScrollRef = useRef<HTMLDivElement>(null)
+  const [activeFeatureIndex, setActiveFeatureIndex] = useState(0)
+  const featuresAnimationRef = useRef<number>()
+
   const coreFeatures = [
     {
       icon: Brain,
@@ -75,6 +82,68 @@ export default function FeaturesPage() {
     },
   ]
 
+  // Track animation progress for Core Features cards (mobile only)
+  useEffect(() => {
+    const container = featuresScrollRef.current
+    if (!container) return
+
+    const scrollElement = container.querySelector('.core-features-scroll') as HTMLElement
+    if (!scrollElement) return
+
+    // Track animation progress using requestAnimationFrame
+    let startTime = Date.now()
+    const duration = 30000 // 30 seconds (matches CSS animation duration)
+
+    const updateProgress = () => {
+      const elapsed = (Date.now() - startTime) % duration
+      const progress = elapsed / duration
+      
+      // Calculate which card should be active based on progress
+      const currentIndex = Math.floor(progress * coreFeatures.length) % coreFeatures.length
+      setActiveFeatureIndex(currentIndex)
+
+      featuresAnimationRef.current = requestAnimationFrame(updateProgress)
+    }
+
+    // Also use IntersectionObserver as a backup to detect which card is most visible
+    const observer = new IntersectionObserver(
+      (entries) => {
+        let maxRatio = 0
+        let mostVisibleIndex = activeFeatureIndex
+
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && entry.intersectionRatio > maxRatio) {
+            maxRatio = entry.intersectionRatio
+            const cardIndex = parseInt(entry.target.getAttribute('data-card-index') || '0')
+            mostVisibleIndex = cardIndex % coreFeatures.length
+          }
+        })
+
+        if (maxRatio > 0.3) {
+          setActiveFeatureIndex(mostVisibleIndex)
+        }
+      },
+      {
+        root: container,
+        rootMargin: '-20% 0px -20% 0px',
+        threshold: [0, 0.3, 0.5, 0.7, 1],
+      }
+    )
+
+    // Observe all cards
+    const cards = container.querySelectorAll('[data-card-index]')
+    cards.forEach((card) => observer.observe(card))
+
+    // Start tracking animation progress
+    updateProgress()
+
+    return () => {
+      observer.disconnect()
+      if (featuresAnimationRef.current) {
+        cancelAnimationFrame(featuresAnimationRef.current)
+      }
+    }
+  }, [coreFeatures.length])
 
   return (
     <div className="min-h-screen bg-black relative">
@@ -106,6 +175,44 @@ export default function FeaturesPage() {
         </div>
       </section>
 
+      {/* Features Dashboard Image */}
+      <section className="relative py-8 px-4 sm:py-12 md:py-16">
+        <div className="container mx-auto max-w-6xl relative z-10">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-50px' }}
+            transition={{ duration: 0.6, ease: 'easeOut' }}
+            className="relative w-full"
+          >
+            <div className="relative w-full overflow-hidden rounded-2xl sm:rounded-3xl md:rounded-[32px] shadow-2xl border border-white/10 bg-black/20">
+              <div className="relative w-full" style={{ aspectRatio: '16/9', minHeight: '280px' }}>
+                {/* Use img tag with proper URL encoding for spaces */}
+                <img
+                  src="/assets/images/Features page .jpg"
+                  alt="OptioHire HR Platform Dashboard - Features Overview showing recruitment analytics, job postings, and candidate management"
+                  className="w-full h-full object-contain sm:object-cover rounded-2xl sm:rounded-3xl md:rounded-[32px]"
+                  loading="lazy"
+                  style={{
+                    display: 'block',
+                    maxWidth: '100%',
+                    height: 'auto',
+                  }}
+                  onError={(e) => {
+                    console.error('Failed to load features image:', e)
+                    // Try URL encoded version as fallback
+                    const target = e.target as HTMLImageElement
+                    if (!target.src.includes('%20')) {
+                      target.src = '/assets/images/Features%20page%20.jpg'
+                    }
+                  }}
+                />
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
       {/* Core Features Section */}
       <section className="pt-8 pb-20 px-4 relative bg-black">
         <div className="container mx-auto max-w-6xl relative z-10">
@@ -126,16 +233,57 @@ export default function FeaturesPage() {
             </p>
           </motion.div>
 
-          <div className="grid grid-cols-2 md:grid-cols-2 gap-3 sm:gap-4 md:gap-8">
+          {/* Mobile: Auto-scrolling horizontal container */}
+          <div className="lg:hidden">
+            <div ref={featuresScrollRef} className="overflow-hidden">
+              <div className="flex gap-4 core-features-scroll">
+                {/* Duplicate cards for seamless loop */}
+                {[...coreFeatures, ...coreFeatures].map((feature, index) => (
+                  <div 
+                    key={`${feature.title}-${index}`} 
+                    data-card-index={index}
+                    className="flex-shrink-0 w-[85vw] max-w-sm"
+                  >
+                    <GradientCard
+                      icon={feature.icon}
+                      title={feature.title}
+                      description={feature.description}
+                      benefits={feature.benefits}
+                      index={index % coreFeatures.length}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            {/* Progress Dots */}
+            <div className="flex justify-center items-center gap-2 mt-6">
+              {coreFeatures.map((_, index) => (
+                <button
+                  key={index}
+                  className={cn(
+                    "transition-all duration-300 rounded-full",
+                    activeFeatureIndex === index
+                      ? "w-8 h-2 bg-[#2D2DDD]"
+                      : "w-2 h-2 bg-white/30 hover:bg-white/50"
+                  )}
+                  aria-label={`Go to feature ${index + 1}`}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Desktop: Grid layout */}
+          <div className="hidden lg:grid grid-cols-2 gap-3 sm:gap-4 md:gap-8">
             {coreFeatures.map((feature, index) => (
               <GradientCard
                 key={feature.title}
-                  icon={feature.icon}
-                  title={feature.title}
-                  description={feature.description}
-                  benefits={feature.benefits}
-                  index={index}
-                />
+                icon={feature.icon}
+                title={feature.title}
+                description={feature.description}
+                benefits={feature.benefits}
+                index={index}
+              />
             ))}
           </div>
         </div>
@@ -247,6 +395,30 @@ export default function FeaturesPage() {
           </motion.div>
         </div>
       </section>
+
+      {/* Add CSS animation for auto-scroll (mobile only) */}
+      <style dangerouslySetInnerHTML={{
+        __html: `
+          @keyframes core-features-scroll {
+            0% {
+              transform: translateX(0);
+            }
+            100% {
+              transform: translateX(calc(-50% - 1rem));
+            }
+          }
+          
+          .core-features-scroll {
+            animation: core-features-scroll 30s linear infinite;
+            display: flex;
+            width: fit-content;
+          }
+          
+          .core-features-scroll:hover {
+            animation-play-state: paused;
+          }
+        `
+      }} />
     </div>
   )
 }

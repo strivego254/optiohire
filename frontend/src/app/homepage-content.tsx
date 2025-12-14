@@ -38,8 +38,11 @@ export default function HomePageContent() {
   const router = useRouter()
   const backgroundRef = useRef<HTMLDivElement>(null)
   const industryScrollRef = useRef<HTMLDivElement>(null)
+  const featuresScrollRef = useRef<HTMLDivElement>(null)
   const [activeIndustryIndex, setActiveIndustryIndex] = useState(0)
+  const [activeFeatureIndex, setActiveFeatureIndex] = useState(0)
   const industryAnimationRef = useRef<number>()
+  const featuresAnimationRef = useRef<number>()
 
   const coreFeatures = [
     {
@@ -201,6 +204,69 @@ export default function HomePageContent() {
     };
   }, [industrySolutions.length]);
 
+  // Track animation progress for Features cards (mobile only)
+  useEffect(() => {
+    const container = featuresScrollRef.current;
+    if (!container) return;
+
+    const scrollElement = container.querySelector('.features-scroll') as HTMLElement;
+    if (!scrollElement) return;
+
+    // Track animation progress using requestAnimationFrame
+    let startTime = Date.now();
+    const duration = 30000; // 30 seconds (matches CSS animation duration)
+
+    const updateProgress = () => {
+      const elapsed = (Date.now() - startTime) % duration;
+      const progress = elapsed / duration;
+      
+      // Calculate which card should be active based on progress
+      const currentIndex = Math.floor(progress * coreFeatures.length) % coreFeatures.length;
+      setActiveFeatureIndex(currentIndex);
+
+      featuresAnimationRef.current = requestAnimationFrame(updateProgress);
+    };
+
+    // Also use IntersectionObserver as a backup to detect which card is most visible
+    const observer = new IntersectionObserver(
+      (entries) => {
+        let maxRatio = 0;
+        let mostVisibleIndex = activeFeatureIndex;
+
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && entry.intersectionRatio > maxRatio) {
+            maxRatio = entry.intersectionRatio;
+            const cardIndex = parseInt(entry.target.getAttribute('data-card-index') || '0');
+            mostVisibleIndex = cardIndex % coreFeatures.length;
+          }
+        });
+
+        if (maxRatio > 0.3) {
+          setActiveFeatureIndex(mostVisibleIndex);
+        }
+      },
+      {
+        root: container,
+        rootMargin: '-20% 0px -20% 0px',
+        threshold: [0, 0.3, 0.5, 0.7, 1],
+      }
+    );
+
+    // Observe all cards
+    const cards = container.querySelectorAll('[data-card-index]');
+    cards.forEach((card) => observer.observe(card));
+
+    // Start tracking animation progress
+    updateProgress();
+
+    return () => {
+      observer.disconnect();
+      if (featuresAnimationRef.current) {
+        cancelAnimationFrame(featuresAnimationRef.current);
+      }
+    };
+  }, [coreFeatures.length]);
+
   return (
     <>
       {/* Animated 3D Background Shape for Content Sections */}
@@ -230,7 +296,48 @@ export default function HomePageContent() {
             </p>
           </motion.div>
 
-          <div className="grid grid-cols-2 md:grid-cols-2 gap-x-4 gap-y-2 md:gap-x-8 md:gap-y-4">
+          {/* Mobile: Auto-scrolling horizontal container */}
+          <div className="lg:hidden">
+            <div ref={featuresScrollRef} className="overflow-hidden">
+              <div className="flex gap-4 features-scroll">
+                {/* Duplicate cards for seamless loop */}
+                {[...coreFeatures, ...coreFeatures].map((feature, index) => (
+                  <div 
+                    key={`${feature.title}-${index}`} 
+                    data-card-index={index}
+                    className="flex-shrink-0 w-[85vw] max-w-sm"
+                  >
+                    <GradientCard
+                      icon={feature.icon}
+                      title={feature.title}
+                      description={feature.description}
+                      benefits={feature.benefits}
+                      index={index % coreFeatures.length}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            {/* Progress Dots */}
+            <div className="flex justify-center items-center gap-2 mt-6">
+              {coreFeatures.map((_, index) => (
+                <button
+                  key={index}
+                  className={cn(
+                    "transition-all duration-300 rounded-full",
+                    activeFeatureIndex === index
+                      ? "w-8 h-2 bg-[#2D2DDD]"
+                      : "w-2 h-2 bg-white/30 hover:bg-white/50"
+                  )}
+                  aria-label={`Go to feature ${index + 1}`}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Desktop: Grid layout */}
+          <div className="hidden lg:grid grid-cols-2 gap-x-4 gap-y-2 md:gap-x-8 md:gap-y-4">
             {coreFeatures.map((feature, index) => (
               <GradientCard
                 key={feature.title}
@@ -360,6 +467,25 @@ export default function HomePageContent() {
             }
             
             .industry-solutions-scroll:hover {
+              animation-play-state: paused;
+            }
+
+            @keyframes features-scroll {
+              0% {
+                transform: translateX(0);
+              }
+              100% {
+                transform: translateX(calc(-50% - 1rem));
+              }
+            }
+            
+            .features-scroll {
+              animation: features-scroll 30s linear infinite;
+              display: flex;
+              width: fit-content;
+            }
+            
+            .features-scroll:hover {
               animation-play-state: paused;
             }
           `
