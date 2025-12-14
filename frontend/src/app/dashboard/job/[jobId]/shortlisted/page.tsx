@@ -40,15 +40,13 @@ export default function ShortlistedPage() {
     }
   }, [user, authLoading, router])
 
-  useEffect(() => {
-    if (!user || user.role === 'admin') return
+  const fetchCandidates = useCallback(async () => {
     if (!jobId) {
       setError('Invalid job ID')
       setLoading(false)
       return
     }
     
-    // Parallelize API calls for faster loading
     const token = localStorage.getItem('token')
     if (!token) {
       setError('Not authenticated')
@@ -56,52 +54,53 @@ export default function ShortlistedPage() {
       return
     }
 
-    const fetchData = async () => {
-      setLoading(true)
-      setError(null)
+    setLoading(true)
+    setError(null)
 
-      try {
-        // Fetch both candidates and meeting link in parallel
-        const [candidatesResponse, meetingLinkResponse] = await Promise.all([
-          fetch(`/api/hr/candidates?jobId=${jobId}`, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-          }),
-          fetch(`/api/job-postings/${jobId}`, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-          })
-        ])
+    try {
+      // Fetch both candidates and meeting link in parallel
+      const [candidatesResponse, meetingLinkResponse] = await Promise.all([
+        fetch(`/api/hr/candidates?jobId=${jobId}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }),
+        fetch(`/api/job-postings/${jobId}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        })
+      ])
 
-        // Process candidates response
-        if (candidatesResponse.ok) {
-          const candidatesData = await candidatesResponse.json()
-          setCandidates(Array.isArray(candidatesData) ? candidatesData : [])
-        } else {
-          const errorData = await candidatesResponse.json().catch(() => ({}))
-          throw new Error(errorData.error || 'Failed to fetch candidates')
-        }
-
-        // Process meeting link response (non-blocking - don't fail if this fails)
-        if (meetingLinkResponse.ok) {
-          const meetingLinkData = await meetingLinkResponse.json()
-          setMeetingLink(meetingLinkData.meeting_link || '')
-        }
-      } catch (err: any) {
-        console.error('Error fetching data:', err)
-        setError(err.message || 'Failed to load candidates')
-        setCandidates([])
-      } finally {
-        setLoading(false)
+      // Process candidates response
+      if (candidatesResponse.ok) {
+        const candidatesData = await candidatesResponse.json()
+        setCandidates(Array.isArray(candidatesData) ? candidatesData : [])
+      } else {
+        const errorData = await candidatesResponse.json().catch(() => ({}))
+        throw new Error(errorData.error || 'Failed to fetch candidates')
       }
-    }
 
-    fetchData()
-  }, [jobId, user])
+      // Process meeting link response (non-blocking - don't fail if this fails)
+      if (meetingLinkResponse.ok) {
+        const meetingLinkData = await meetingLinkResponse.json()
+        setMeetingLink(meetingLinkData.meeting_link || '')
+      }
+    } catch (err: any) {
+      console.error('Error fetching data:', err)
+      setError(err.message || 'Failed to load candidates')
+      setCandidates([])
+    } finally {
+      setLoading(false)
+    }
+  }, [jobId])
+
+  useEffect(() => {
+    if (!user || user.role === 'admin') return
+    fetchCandidates()
+  }, [jobId, user, fetchCandidates])
 
   const handleScheduleClick = useCallback((candidate: Candidate) => {
     setSelectedCandidate(candidate)
@@ -121,27 +120,10 @@ export default function ShortlistedPage() {
     }
   }, [jobId, router])
 
-  const handleScheduleSuccess = async () => {
+  const handleScheduleSuccess = useCallback(() => {
     // Refetch candidates after scheduling
-    const token = localStorage.getItem('token')
-    if (!token) return
-
-    try {
-      const response = await fetch(`/api/hr/candidates?jobId=${jobId}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        setCandidates(Array.isArray(data) ? data : [])
-      }
-    } catch (err) {
-      console.error('Error refetching candidates:', err)
-    }
-  }
+    fetchCandidates()
+  }, [fetchCandidates])
 
   // Show UI immediately, only show loading spinner for data fetching
   const isLoadingData = loading && !authLoading
