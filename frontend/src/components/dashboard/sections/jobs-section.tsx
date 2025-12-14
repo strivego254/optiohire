@@ -27,6 +27,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/use-auth'
 import { useJobsRealtime, useApplicantsRealtime, useAnalyticsRealtime } from '@/hooks/use-realtime-data'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 
 interface JobWithApplicants extends JobPosting {
   job_posting_id?: string | number
@@ -675,24 +676,23 @@ export function JobsSection() {
                     </div>
                   </div>
                   <div className="flex flex-col gap-2 mt-4 sm:mt-0 sm:min-w-[140px]">
-                    <Button 
-                      type="button"
-                      variant="default" 
-                      size="sm"
+                    <Link
+                      href={`/dashboard/job/${String(job.id || job.job_posting_id || '')}/shortlisted`}
                       onClick={(e) => {
-                        e.preventDefault()
                         e.stopPropagation()
-                        const jobId = String(job.id || job.job_posting_id || '')
-                        console.log('Navigating to candidates for job:', jobId)
-                        if (jobId) {
-                          router.push(`/dashboard/job/${jobId}/shortlisted`)
-                        }
                       }}
-                      className="bg-[#2D2DDD] text-white hover:bg-[#2D2DDD] w-full shadow-none hover:shadow-none"
+                      className="w-full"
                     >
-                      <Users className="w-4 h-4 mr-2" />
-                      View Candidates
-                    </Button>
+                      <Button 
+                        type="button"
+                        variant="default" 
+                        size="sm"
+                        className="bg-[#2D2DDD] text-white hover:bg-[#2D2DDD] w-full shadow-none hover:shadow-none"
+                      >
+                        <Users className="w-4 h-4 mr-2" />
+                        View Candidates
+                      </Button>
+                    </Link>
                     <div className="flex flex-row gap-2">
                       <Button 
                         variant="outline" 

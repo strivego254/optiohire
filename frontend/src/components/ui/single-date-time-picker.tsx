@@ -139,7 +139,7 @@ export function SingleDateTimePicker({
               value={selectedDate}
               onChange={(e) => handleDateChange(e.target.value)}
               min={minDate}
-              className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2D2DDD]"
+              className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md text-gray-900 dark:text-white focus:outline-none focus:border-[#2D2DDD] dark:focus:border-gray-600 focus:ring-0 border-focus-thin"
               disabled={disabled}
             />
           </div>
@@ -152,7 +152,7 @@ export function SingleDateTimePicker({
                 value={selectedTime}
                 onChange={(e) => handleTimeChange(e.target.value)}
                 min={minTime}
-                className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2D2DDD]"
+                className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md text-gray-900 dark:text-white focus:outline-none focus:border-[#2D2DDD] dark:focus:border-gray-600 focus:ring-0 border-focus-thin"
                 disabled={disabled}
               />
             </div>

@@ -133,7 +133,7 @@
 
   .border-focus-thin:focus,
   .border-focus-thin:focus-visible {
-    border-width: 0.5px !important;
+    border-width: 1px !important;
   }
   
   /* Performance optimization utilities */

@@ -215,7 +215,7 @@ export function CreateJobModal({ isOpen, onClose, onSubmit }: CreateJobModalProp
                           value={formData.company_name}
                           onChange={(e) => handleInputChange('company_name', e.target.value)}
                           placeholder="Enter company name"
-                          className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 hover:border-[#2D2DDD] focus-visible:border-white dark:focus-visible:border-white focus-visible:outline-none focus-visible:ring-0 border-focus-thin"
+                          className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 hover:border-[#2D2DDD] focus-visible:border-[#2D2DDD] dark:focus-visible:border-gray-600 focus-visible:outline-none focus-visible:ring-0 border-focus-thin"
                           required
                         />
                       </div>
@@ -228,7 +228,7 @@ export function CreateJobModal({ isOpen, onClose, onSubmit }: CreateJobModalProp
                           value={formData.company_email}
                           onChange={(e) => handleInputChange('company_email', e.target.value)}
                           placeholder="company@example.com"
-                          className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 hover:border-[#2D2DDD] focus-visible:border-white dark:focus-visible:border-white focus-visible:outline-none focus-visible:ring-0 border-focus-thin"
+                          className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 hover:border-[#2D2DDD] focus-visible:border-[#2D2DDD] dark:focus-visible:border-gray-600 focus-visible:outline-none focus-visible:ring-0 border-focus-thin"
                           required
                         />
                       </div>
@@ -242,7 +242,7 @@ export function CreateJobModal({ isOpen, onClose, onSubmit }: CreateJobModalProp
                         value={formData.hr_email}
                         onChange={(e) => handleInputChange('hr_email', e.target.value)}
                         placeholder="hr@example.com"
-                        className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 hover:border-[#2D2DDD] focus-visible:border-white dark:focus-visible:border-white focus-visible:outline-none focus-visible:ring-0 border-focus-thin"
+                        className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 hover:border-[#2D2DDD] focus-visible:border-[#2D2DDD] dark:focus-visible:border-gray-600 focus-visible:outline-none focus-visible:ring-0 border-focus-thin"
                         required
                       />
                     </div>
@@ -261,7 +261,7 @@ export function CreateJobModal({ isOpen, onClose, onSubmit }: CreateJobModalProp
                         value={formData.job_title}
                         onChange={(e) => handleInputChange('job_title', e.target.value)}
                         placeholder="e.g., Senior Software Engineer"
-                        className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 hover:border-[#2D2DDD] focus-visible:border-white dark:focus-visible:border-white focus-visible:outline-none focus-visible:ring-0 border-focus-thin"
+                        className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 hover:border-[#2D2DDD] focus-visible:border-[#2D2DDD] dark:focus-visible:border-gray-600 focus-visible:outline-none focus-visible:ring-0 border-focus-thin"
                         required
                       />
                     </div>
@@ -276,7 +276,7 @@ export function CreateJobModal({ isOpen, onClose, onSubmit }: CreateJobModalProp
                         onChange={(e) => handleInputChange('job_description', e.target.value)}
                         placeholder="Describe the role, responsibilities, and requirements... (at least 50 characters)"
                         rows={4}
-                        className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 hover:border-[#2D2DDD] focus-visible:border-white dark:focus-visible:border-white focus-visible:outline-none focus-visible:ring-0 border-focus-thin"
+                        className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 hover:border-[#2D2DDD] focus-visible:border-[#2D2DDD] dark:focus-visible:border-gray-600 focus-visible:outline-none focus-visible:ring-0 border-focus-thin"
                         required
                         minLength={50}
                       />
@@ -298,7 +298,7 @@ export function CreateJobModal({ isOpen, onClose, onSubmit }: CreateJobModalProp
                           onChange={(e) => setNewSkill(e.target.value)}
                           placeholder="Add a skill"
                           onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addSkill())}
-                          className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 hover:border-[#2D2DDD] focus-visible:border-white dark:focus-visible:border-white focus-visible:outline-none focus-visible:ring-0 border-focus-thin"
+                          className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 hover:border-[#2D2DDD] focus-visible:border-[#2D2DDD] dark:focus-visible:border-gray-600 focus-visible:outline-none focus-visible:ring-0 border-focus-thin"
                         />
                         <Button type="button" onClick={addSkill} variant="outline" className="bg-[#2D2DDD] hover:bg-[#2D2DDD] text-white border-[#2D2DDD] shadow-none hover:shadow-none">
                           <Plus className="w-4 h-4" />
@@ -359,7 +359,7 @@ export function CreateJobModal({ isOpen, onClose, onSubmit }: CreateJobModalProp
                         value={formData.interview_meeting_link}
                         onChange={(e) => handleInputChange('interview_meeting_link', e.target.value)}
                         placeholder="https://meet.google.com/..."
-                        className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 hover:border-[#2D2DDD] focus-visible:border-white dark:focus-visible:border-white focus-visible:outline-none focus-visible:ring-0 border-focus-thin"
+                        className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 hover:border-[#2D2DDD] focus-visible:border-[#2D2DDD] dark:focus-visible:border-gray-600 focus-visible:outline-none focus-visible:ring-0 border-focus-thin"
                       />
                       <p className="text-xs text-gray-500 dark:text-gray-400">
                         This will be used as the default meeting link when scheduling interviews for shortlisted candidates
@@ -391,7 +391,7 @@ export function CreateJobModal({ isOpen, onClose, onSubmit }: CreateJobModalProp
                       variant="outline" 
                       onClick={onClose}
                       disabled={isSubmitting}
-                      className="border-white text-white hover:bg-[#2D2DDD] hover:border-[#2D2DDD] hover:text-white"
+                      className="bg-[#2D2DDD] hover:bg-[#2525B0] border-[#2D2DDD] hover:border-[#2525B0] text-white hover:text-white dark:bg-transparent dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:border-gray-500 dark:hover:text-white"
                     >
                       Cancel
                     </Button>
