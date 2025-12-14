@@ -166,6 +166,8 @@ export default function ShortlistedPage() {
     return <span className="text-sm font-semibold text-gray-600">#{rank}</span>
   }, [])
 
+  type StatusKey = 'SHORTLIST' | 'SHORTLISTED' | 'FLAG' | 'FLAGGED' | 'REJECT' | 'REJECTED' | 'PENDING'
+
   const statusMap = useMemo(() => ({
     'SHORTLIST': { variant: 'shortlisted' as const, label: 'Shortlisted' },
     'SHORTLISTED': { variant: 'shortlisted' as const, label: 'Shortlisted' },
@@ -174,10 +176,11 @@ export default function ShortlistedPage() {
     'REJECT': { variant: 'rejected' as const, label: 'Rejected' },
     'REJECTED': { variant: 'rejected' as const, label: 'Rejected' },
     'PENDING': { variant: 'outline' as const, label: 'Pending' },
-  }), [])
+  } as Record<StatusKey, { variant: 'shortlisted' | 'flagged' | 'rejected' | 'outline', label: string }>), [])
 
   const getStatusBadge = useCallback((status: string) => {
-    const statusInfo = statusMap[status.toUpperCase()] || statusMap['PENDING']
+    const upperStatus = status.toUpperCase() as StatusKey
+    const statusInfo = statusMap[upperStatus] || statusMap['PENDING']
     return <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
   }, [statusMap])
 
