@@ -83,6 +83,7 @@ export default function SignInPage() {
               priority
               className="object-cover"
               sizes="(max-width: 768px) 100vw, 50vw"
+              quality={85}
             />
           </div>
         </div>

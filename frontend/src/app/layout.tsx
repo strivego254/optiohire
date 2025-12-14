@@ -14,7 +14,8 @@ const figtree = Figtree({
   variable: '--font-figtree',
   display: 'swap',
   preload: true,
-  adjustFontFallback: false,
+  adjustFontFallback: true,
+  fallback: ['system-ui', 'arial'],
 })
 
 // Get metadata base URL - prioritize NEXT_PUBLIC_APP_URL, then VERCEL_URL, fallback to localhost
@@ -70,11 +71,17 @@ export default function RootLayout({
   return (
     <html lang="en" className={figtree.variable} suppressHydrationWarning>
       <head>
-        {/* Preload critical resources */}
+        {/* Preconnect to external domains for faster resource loading */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://images.unsplash.com" />
         {/* Prefetch critical routes */}
         <link rel="prefetch" href="/auth/signin" />
         <link rel="prefetch" href="/auth/signup" />
+        {/* Preload critical assets */}
+        <link rel="preload" href="/assets/logo/white-logo.png" as="image" type="image/png" />
+        {/* Performance hints */}
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
       </head>
       <body className={`${figtree.className} antialiased bg-background text-foreground`} suppressHydrationWarning>
         <ThemeProvider>

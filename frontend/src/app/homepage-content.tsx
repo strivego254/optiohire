@@ -8,38 +8,13 @@ import dynamic from 'next/dynamic'
 import { useRef, Suspense, useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 
-// Lazy load heavy components for better performance
-const Animated3DShape = dynamic(() => import('@/components/ui/animated-3d-shape'), {
-  ssr: false,
-  loading: () => null,
-})
-
-
-const FinalCTASection = dynamic(() => import('@/components/ui/final-cta-section'), {
-  ssr: false,
-  loading: () => null,
-})
-
-const HowItWorksCards = dynamic(() => import('@/components/ui/how-it-works-cards'), {
-  ssr: false,
-  loading: () => (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 md:gap-8 w-full py-20">
-      {[1, 2, 3, 4].map((i) => (
-        <div key={i} className="h-[400px] bg-neutral-800/50 rounded-[32px] animate-pulse" />
-      ))}
-    </div>
-  ),
-})
-
-const ModernBusinessImpact = dynamic(() => import('@/components/ui/modern-business-impact'), {
-  ssr: false,
-  loading: () => <div className="min-h-screen bg-black animate-pulse" />,
-})
-
-const PricingBackground = dynamic(() => import('@/components/ui/pricing-background'), {
-  ssr: false,
-  loading: () => null,
-})
+// Import components directly instead of lazy loading to ensure they're available immediately
+// This prevents features from not working on first load
+import Animated3DShape from '@/components/ui/animated-3d-shape'
+import FinalCTASection from '@/components/ui/final-cta-section'
+import HowItWorksCards from '@/components/ui/how-it-works-cards'
+import ModernBusinessImpact from '@/components/ui/modern-business-impact'
+import PricingBackground from '@/components/ui/pricing-background'
 
 // Shader background is a client component that mounts in useEffect; import directly to avoid chunk delays
 import { 

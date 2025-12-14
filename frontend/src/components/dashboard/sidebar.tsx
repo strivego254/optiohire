@@ -98,7 +98,8 @@ export function Sidebar({ activeSection, onSectionChange }: SidebarProps) {
                   fill
                   sizes="40px"
                   className="object-contain"
-                  priority
+                  loading="lazy"
+                  quality={85}
                 />
               ) : (
                 <span className="block h-full w-full rounded-lg bg-muted-foreground/20" />

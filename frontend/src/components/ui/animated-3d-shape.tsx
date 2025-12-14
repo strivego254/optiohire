@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useMemo } from 'react'
 import { motion } from 'framer-motion'
 
 interface Animated3DShapeProps {
@@ -10,7 +10,27 @@ interface Animated3DShapeProps {
 export default function Animated3DShape({ className = '' }: Animated3DShapeProps) {
   const [scrollY, setScrollY] = useState(0)
   const [shapeIndex, setShapeIndex] = useState(0)
+  const [mounted, setMounted] = useState(false)
   const shapeRef = useRef<HTMLDivElement>(null)
+
+  // Generate random values once on mount to avoid hydration mismatches
+  const floatingShapesData = useMemo(() => {
+    if (typeof window === 'undefined') return []
+    return Array.from({ length: 5 }, () => ({
+      top: Math.random() * 100,
+      left: Math.random() * 100,
+      width: 50 + Math.random() * 100,
+      height: 50 + Math.random() * 100,
+      borderRadius: Math.random() * 50,
+      shapeIndex: Math.floor(Math.random() * 5),
+      duration: 4 + Math.random() * 2,
+      delay: Math.random() * 2,
+    }))
+  }, [])
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // Define different geometric shapes
   const shapes = [
@@ -71,6 +91,11 @@ export default function Animated3DShape({ className = '' }: Animated3DShapeProps
 
   const currentShape = shapes[shapeIndex]
 
+  // Don't render on server
+  if (!mounted) {
+    return null
+  }
+
   return (
     <div 
       ref={shapeRef}
@@ -113,15 +138,15 @@ export default function Animated3DShape({ className = '' }: Animated3DShapeProps
       ))}
 
       {/* Additional floating shapes */}
-      {[...Array(5)].map((_, i) => (
+      {floatingShapesData.map((shapeData, i) => (
         <motion.div
           key={`floating-${i}`}
           className="absolute gpu-accelerated"
           style={{
-            top: `${Math.random() * 100}%`,
-            left: `${Math.random() * 100}%`,
-            width: `${50 + Math.random() * 100}px`,
-            height: `${50 + Math.random() * 100}px`,
+            top: `${shapeData.top}%`,
+            left: `${shapeData.left}%`,
+            width: `${shapeData.width}px`,
+            height: `${shapeData.height}px`,
           }}
           animate={{
             y: [0, -20, 0],
@@ -131,18 +156,18 @@ export default function Animated3DShape({ className = '' }: Animated3DShapeProps
             opacity: [0.05, 0.15, 0.05],
           }}
           transition={{
-            duration: 4 + Math.random() * 2,
+            duration: shapeData.duration,
             repeat: Infinity,
             ease: "easeInOut",
-            delay: Math.random() * 2,
+            delay: shapeData.delay,
             type: "tween",
           }}
         >
           <div
             className="w-full h-full bg-gradient-to-br from-primary/10 to-secondary/10"
             style={{
-              borderRadius: `${Math.random() * 50}%`,
-              clipPath: shapes[Math.floor(Math.random() * shapes.length)].clipPath,
+              borderRadius: `${shapeData.borderRadius}%`,
+              clipPath: shapes[shapeData.shapeIndex].clipPath,
               filter: 'blur(2px)',
             }}
           />

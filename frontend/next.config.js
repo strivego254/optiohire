@@ -2,8 +2,8 @@
 const nextConfig = {
   images: {
     domains: ['localhost', 'images.unsplash.com'],
-    formats: ['image/webp', 'image/avif'],
-    minimumCacheTTL: 60, // Reduced cache for faster updates
+    formats: ['image/avif', 'image/webp'],
+    minimumCacheTTL: 31536000, // 1 year cache for better performance
     dangerouslyAllowSVG: true,
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
@@ -15,6 +15,8 @@ const nextConfig = {
         pathname: '/**',
       },
     ],
+    // Optimize image loading
+    unoptimized: false,
   },
   experimental: {
     optimizePackageImports: [
@@ -42,6 +44,10 @@ const nextConfig = {
     maxInactiveAge: 15 * 1000, // Reduced from 25s to 15s for faster cleanup
     pagesBufferLength: 1, // Reduced from 2 to 1 for less memory usage
   },
+  // Optimize production builds
+  productionBrowserSourceMaps: false,
+  // Optimize static generation
+  output: 'standalone',
   webpack: (config, { isServer, dev }) => {
     // Ignore warnings about non-serializable cache items and module warnings
     config.ignoreWarnings = [

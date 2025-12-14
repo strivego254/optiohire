@@ -17,10 +17,11 @@ const NeuralNetworkHero = dynamic(() => import('@/components/ui/neural-network-h
 })
 import VideoSection from '@/components/ui/video-section'
 
-// Lazy load heavy components below the fold for better initial load performance
-// Use Suspense to handle loading states properly
+// Load homepage content immediately on client - no lazy loading delay
+// This ensures features are available on first load
 const HomePageContent = dynamic(() => import('./homepage-content'), {
-  ssr: false,
+  ssr: false, // Client component with hooks
+  // Remove loading state to render immediately
 })
 
 export default function HomePage() {

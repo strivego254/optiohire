@@ -95,6 +95,8 @@ export const Card = ({
                 className="object-cover"
                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 60vw, 600px"
                 priority={i === 0}
+                loading={i === 0 ? undefined : "lazy"}
+                quality={85}
               />
             </motion.div>
           </div>

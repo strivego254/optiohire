@@ -18,8 +18,9 @@ import {
 } from 'lucide-react'
 
 // Lazy load heavy components
-const Animated3DShape = dynamic(() => import('@/components/ui/animated-3d-shape').then(mod => ({ default: mod.default })), {
+const Animated3DShape = dynamic(() => import('@/components/ui/animated-3d-shape'), {
   ssr: false,
+  loading: () => null,
 })
 
 export default function FeaturesPage() {

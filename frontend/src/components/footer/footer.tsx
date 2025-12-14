@@ -83,10 +83,12 @@ export function Footer() {
               <Image
                 src="/assets/logo/white-logo.png"
                 alt="OptioHire logo"
-                width={120}
-                height={120}
+                width={56}
+                height={56}
                 className="h-12 w-12 md:h-14 md:w-14 object-contain"
-                priority
+                loading="lazy"
+                quality={90}
+                sizes="(max-width: 768px) 48px, 56px"
               />
               <span className="text-white text-2xl sm:text-3xl font-figtree font-extralight">OptioHire</span>
             </div>

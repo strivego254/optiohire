@@ -11,23 +11,9 @@ interface ConditionalLayoutProps {
 
 export function ConditionalLayout({ children }: ConditionalLayoutProps) {
   const pathname = usePathname()
-  const [mounted, setMounted] = useState(false)
 
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  // During SSR, always show navbar/footer to prevent hydration mismatch
-  if (!mounted) {
-    return (
-      <>
-        <Navbar />
-        <main className="pt-0">{children}</main>
-        <Footer />
-      </>
-    )
-  }
-
+  // Check pathname immediately - no need to wait for mount
+  // usePathname() works on both server and client
   const isDashboard = pathname?.startsWith('/dashboard') || false
   const isAuth = pathname?.startsWith('/auth') || false
   const isAdmin = pathname?.startsWith('/admin') || false

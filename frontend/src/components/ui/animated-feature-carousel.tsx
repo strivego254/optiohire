@@ -197,6 +197,8 @@ const StepImage = memo(forwardRef<HTMLDivElement, StepImageProps>(
           className="h-full w-full object-cover"
           sizes={sizes ?? "(max-width: 768px) 90vw, (max-width: 1200px) 50vw, 33vw"}
           draggable={false}
+          loading={priority ? undefined : "lazy"}
+          quality={85}
         />
       </div>
     )

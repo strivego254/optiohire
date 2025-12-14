@@ -20,17 +20,13 @@ const navigation = [
 
 export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [mounted, setMounted] = useState(false)
-  const { user } = useAuth()
+  const { user, loading } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
 
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  // Prevent hydration mismatch by not rendering user-dependent UI until mounted
-  const showUserButton = mounted && user
+  // Render immediately - user state will update when auth loads
+  // This prevents blocking the UI on initial load
+  const showUserButton = user
 
   return (
     <header className="fixed top-6 left-0 right-0 z-30 px-4 md:px-6">
@@ -43,10 +39,12 @@ export function Navbar() {
               <Image
                 src="/assets/logo/white-logo.png"
                 alt="OptioHire"
-                width={112}
-                height={112}
+                width={56}
+                height={56}
                 className="h-12 w-12 md:h-14 md:w-14 object-contain"
                 priority
+                quality={90}
+                sizes="(max-width: 768px) 48px, 56px"
               />
             </div>
           </Link>

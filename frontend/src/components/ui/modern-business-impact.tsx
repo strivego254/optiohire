@@ -239,7 +239,9 @@ function ImpactCard({ project, index }: { project: ProjectData; index: number })
               alt={project.title}
               fill
               className="object-cover rounded-xl"
-              sizes="(max-width: 768px) 100vw, 50vw"
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+              loading="lazy"
+              quality={85}
             />
           </div>
         </div>
