@@ -687,11 +687,11 @@ export function JobsSection() {
                         type="button"
                         variant="default" 
                         size="sm"
-                        className="bg-[#2D2DDD] text-white hover:bg-[#2D2DDD] w-full shadow-none hover:shadow-none"
-                      >
-                        <Users className="w-4 h-4 mr-2" />
-                        View Candidates
-                      </Button>
+                      className="bg-[#2D2DDD] text-white hover:bg-[#2D2DDD] w-full shadow-none hover:shadow-none"
+                    >
+                      <Users className="w-4 h-4 mr-2" />
+                      View Candidates
+                    </Button>
                     </Link>
                     <div className="flex flex-row gap-2">
                       <Button 

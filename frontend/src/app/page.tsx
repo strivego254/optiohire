@@ -77,7 +77,7 @@ export default function HomePage() {
         {/* Video Section */}
         <ErrorBoundary fallback={null}>
           <VideoSection
-            videoSrc="/assets/videos/HR Talking.mp4"
+            useHowdyGo={true}
             title="See It in Action"
             description="Watch how our AI-powered platform transforms your hiring process"
           />

@@ -45,10 +45,10 @@ export default function ShortlistedPage() {
       setError('Invalid job ID')
       setLoading(false)
       return
-    }
-    
-    const token = localStorage.getItem('token')
-    if (!token) {
+      }
+      
+      const token = localStorage.getItem('token')
+      if (!token) {
       setError('Not authenticated')
       setLoading(false)
       return
@@ -67,11 +67,11 @@ export default function ShortlistedPage() {
           },
         }),
         fetch(`/api/job-postings/${jobId}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        })
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      })
       ])
 
       // Process candidates response
@@ -247,94 +247,94 @@ export default function ShortlistedPage() {
               </div>
             </div>
           ) : (
-            <div 
-              className="overflow-x-auto [&::-webkit-scrollbar]:h-[2px] [&::-webkit-scrollbar]:w-[2px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-[#2D2DDD] [&::-webkit-scrollbar-thumb]:rounded-full"
-              style={{
-                scrollbarWidth: 'thin',
-                scrollbarColor: '#2D2DDD transparent'
-              }}
-            >
-              <Table>
-                <TableHeader>
+          <div 
+            className="overflow-x-auto [&::-webkit-scrollbar]:h-[2px] [&::-webkit-scrollbar]:w-[2px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-[#2D2DDD] [&::-webkit-scrollbar-thumb]:rounded-full"
+            style={{
+              scrollbarWidth: 'thin',
+              scrollbarColor: '#2D2DDD transparent'
+            }}
+          >
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-20">Rank</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead className="w-24 text-center">Score</TableHead>
+                  <TableHead className="w-32">Status</TableHead>
+                  <TableHead className="min-w-[200px]">Score Reason</TableHead>
+                  <TableHead className="w-32">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {candidates.length === 0 ? (
                   <TableRow>
-                    <TableHead className="w-20">Rank</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead className="w-24 text-center">Score</TableHead>
-                    <TableHead className="w-32">Status</TableHead>
-                    <TableHead className="min-w-[200px]">Score Reason</TableHead>
-                    <TableHead className="w-32">Actions</TableHead>
+                    <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                      No candidates yet on the job post
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {candidates.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-gray-500">
-                        No candidates yet on the job post
+                ) : (
+                  candidates.map((candidate) => (
+                    <TableRow 
+                      key={candidate.id}
+                      className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
+                      onClick={() => handleRowClick(candidate)}
+                    >
+                      <TableCell>
+                        <div className="flex items-center justify-center">
+                          {candidate.rank ? getRankIcon(candidate.rank) : '-'}
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        {cleanCandidateName(candidate.candidate_name)}
+                      </TableCell>
+                      <TableCell className="text-gray-600 dark:text-gray-400">
+                        {candidate.email}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {candidate.score !== null && candidate.score !== undefined && typeof candidate.score === 'number' ? (
+                          <span className="font-semibold text-[#2D2DDD] dark:text-white">
+                            {Number(candidate.score).toFixed(1)}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {getStatusBadge(candidate.status)}
+                      </TableCell>
+                      <TableCell className="text-sm text-gray-600 dark:text-gray-400">
+                        <p className="line-clamp-2" title={candidate.reasoning || ''}>
+                          {truncateReasoning(candidate.reasoning)}
+                        </p>
+                      </TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        {candidate.status === 'SHORTLIST' && (
+                          candidate.interview_status === 'SCHEDULED' || candidate.interview_time ? (
+                            <Button
+                              size="sm"
+                              disabled
+                              className="bg-green-600 hover:bg-green-600 text-white shadow-none hover:shadow-none cursor-not-allowed"
+                            >
+                              Scheduled
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              onClick={() => handleScheduleClick(candidate)}
+                              className="bg-[#2D2DDD] hover:bg-[#2D2DDD] text-white shadow-none hover:shadow-none"
+                            >
+                              Schedule
+                            </Button>
+                          )
+                        )}
                       </TableCell>
                     </TableRow>
-                  ) : (
-                    candidates.map((candidate) => (
-                      <TableRow 
-                        key={candidate.id}
-                        className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
-                        onClick={() => handleRowClick(candidate)}
-                      >
-                        <TableCell>
-                          <div className="flex items-center justify-center">
-                            {candidate.rank ? getRankIcon(candidate.rank) : '-'}
-                          </div>
-                        </TableCell>
-                        <TableCell className="font-medium">
-                          {cleanCandidateName(candidate.candidate_name)}
-                        </TableCell>
-                        <TableCell className="text-gray-600 dark:text-gray-400">
-                          {candidate.email}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          {candidate.score !== null && candidate.score !== undefined && typeof candidate.score === 'number' ? (
-                            <span className="font-semibold text-[#2D2DDD] dark:text-white">
-                              {Number(candidate.score).toFixed(1)}
-                            </span>
-                          ) : (
-                            <span className="text-gray-400">-</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {getStatusBadge(candidate.status)}
-                        </TableCell>
-                        <TableCell className="text-sm text-gray-600 dark:text-gray-400">
-                          <p className="line-clamp-2" title={candidate.reasoning || ''}>
-                            {truncateReasoning(candidate.reasoning)}
-                          </p>
-                        </TableCell>
-                        <TableCell onClick={(e) => e.stopPropagation()}>
-                          {candidate.status === 'SHORTLIST' && (
-                            candidate.interview_status === 'SCHEDULED' || candidate.interview_time ? (
-                              <Button
-                                size="sm"
-                                disabled
-                                className="bg-green-600 hover:bg-green-600 text-white shadow-none hover:shadow-none cursor-not-allowed"
-                              >
-                                Scheduled
-                              </Button>
-                            ) : (
-                              <Button
-                                size="sm"
-                                onClick={() => handleScheduleClick(candidate)}
-                                className="bg-[#2D2DDD] hover:bg-[#2D2DDD] text-white shadow-none hover:shadow-none"
-                              >
-                                Schedule
-                              </Button>
-                            )
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
           )}
         </CardContent>
       </Card>
