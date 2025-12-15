@@ -134,48 +134,51 @@ export function CookieConsent() {
           transition={{ type: 'spring', damping: 25, stiffness: 200 }}
           className="fixed bottom-0 left-0 right-0 z-50 p-4 sm:p-6"
         >
-          <Card className="max-w-6xl mx-auto shadow-2xl border-2 border-gray-200 dark:border-gray-700 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl">
-            <CardContent className="p-6 sm:p-8">
+          <Card className="max-w-sm ml-auto mr-4 sm:mr-6 shadow-2xl border-2 border-gray-200 dark:border-gray-700 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl">
+            <CardContent className="p-4 sm:p-5">
               {!showPreferences ? (
                 // Cookie Banner
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
-                  <div className="flex-shrink-0">
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#2D2DDD] to-[#2D2DDD]/80 flex items-center justify-center">
-                      <Cookie className="w-6 h-6 text-white" />
+                <div className="space-y-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#2D2DDD] to-[#2D2DDD]/80 flex items-center justify-center">
+                        <Cookie className="w-5 h-5 text-white" />
+                      </div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-1.5">
+                        We Value Your Privacy
+                      </h3>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
+                        We use cookies to enhance your experience. By clicking "Accept All", you consent to our use of cookies. 
+                        <a href="/privacy" className="text-[#2D2DDD] hover:underline font-medium ml-1">
+                          Learn more
+                        </a>.
+                      </p>
                     </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                      We Value Your Privacy
-                    </h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-                      We use cookies to enhance your browsing experience, analyze site traffic, and personalize content. 
-                      By clicking "Accept All", you consent to our use of cookies. You can customize your preferences 
-                      or learn more in our{' '}
-                      <a href="/privacy" className="text-[#2D2DDD] hover:underline font-medium">
-                        Privacy Policy
-                      </a>.
-                    </p>
-                  </div>
-                  <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                  <div className="flex flex-wrap gap-2">
                     <Button
                       onClick={() => setShowPreferences(true)}
                       variant="outline"
-                      className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+                      size="sm"
+                      className="text-xs border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
                     >
-                      <Settings className="w-4 h-4 mr-2" />
+                      <Settings className="w-3 h-3 mr-1.5" />
                       Customize
                     </Button>
                     <Button
                       onClick={handleRejectAll}
                       variant="outline"
-                      className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+                      size="sm"
+                      className="text-xs border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
                     >
                       Reject All
                     </Button>
                     <Button
                       onClick={handleAcceptAll}
-                      className="bg-[#2D2DDD] hover:bg-[#2D2DDD]/90 text-white"
+                      size="sm"
+                      className="text-xs bg-[#2D2DDD] hover:bg-[#2D2DDD]/90 text-white"
                     >
                       Accept All
                     </Button>
