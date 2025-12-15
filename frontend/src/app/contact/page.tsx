@@ -25,11 +25,11 @@ const ACCENT = '#2D2DDD'
 const stats = [
   {
     label: 'Average response time',
-    value: '< 2 hours',
+    value: '< 10 minutes',
   },
   {
     label: 'Global support teams',
-    value: '6 regions',
+    value: '1 regions',
   },
   {
     label: 'Enterprise SLA uptime',
@@ -42,21 +42,21 @@ const contactMethods = [
     title: 'Talk to sales',
     description: 'Design a tailored AI hiring rollout for your team and accelerate ROI in under 30 days.',
     cta: 'Book a strategy session',
-    href: 'mailto:sales@hraigagent.com',
+    href: 'mailto:hirebitapplications@gmail.com',
     icon: Briefcase,
   },
   {
     title: 'Product support',
     description: '24/7 technical assistance with proactive monitoring and guided troubleshooting workflows.',
     cta: 'Open a support ticket',
-    href: 'mailto:support@hraigagent.com',
+    href: 'mailto:hirebitapplications@gmail.com',
     icon: LifeBuoy,
   },
   {
     title: 'Partner with us',
     description: 'Co-build integrations, reseller programs, and innovation pilots with our platform team.',
     cta: 'Connect with partnerships',
-    href: 'mailto:partners@hraigagent.com',
+    href: 'mailto:hirebitapplications@gmail.com',
     icon: Building2,
   },
 ]
@@ -69,12 +69,12 @@ const infoHighlights = [
   },
   {
     title: 'Availability',
-    copy: 'Live chat & phone support 05:00–23:00 UTC, Monday–Sunday',
+    copy: 'Live chat & phone support 06:00–23:00 EAT, Monday–Sunday',
     icon: Clock4,
   },
   {
     title: 'Security posture',
-    copy: 'SOC 2 Type II, GDPR-ready, continuous penetration testing',
+    copy: 'GDPR-ready and Continuous penetration testing',
     icon: ShieldCheck,
   },
 ]

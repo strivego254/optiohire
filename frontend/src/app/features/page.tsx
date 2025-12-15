@@ -20,11 +20,6 @@ import {
   Award,
 } from 'lucide-react'
 
-// Lazy load heavy components
-const Animated3DShape = dynamic(() => import('@/components/ui/animated-3d-shape'), {
-  ssr: false,
-  loading: () => null,
-})
 
 export default function FeaturesPage() {
   const featuresScrollRef = useRef<HTMLDivElement>(null)
@@ -147,9 +142,6 @@ export default function FeaturesPage() {
 
   return (
     <div className="min-h-screen bg-black relative">
-      {/* Animated Background */}
-      <Animated3DShape className="opacity-20" />
-
       {/* Hero Section */}
       <section className="relative pt-32 pb-8 px-4 sm:pt-40 sm:pb-10 md:pt-48 md:pb-12">
         <div className="container mx-auto max-w-6xl relative z-10">
@@ -278,12 +270,12 @@ export default function FeaturesPage() {
             {coreFeatures.map((feature, index) => (
               <GradientCard
                 key={feature.title}
-                icon={feature.icon}
-                title={feature.title}
-                description={feature.description}
-                benefits={feature.benefits}
-                index={index}
-              />
+                  icon={feature.icon}
+                  title={feature.title}
+                  description={feature.description}
+                  benefits={feature.benefits}
+                  index={index}
+                />
             ))}
           </div>
         </div>

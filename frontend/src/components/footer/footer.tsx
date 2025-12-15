@@ -30,8 +30,8 @@ export function Footer() {
       title: "Company",
       links: [
         { label: "About Us", href: "/about" },
-        { label: "Contact", href: "/contact" },
         { label: "Support", href: "/contact#support" },
+        { label: "Privacy Policy", href: "/privacy", target: "_blank" },
         {
           label: "Get Started",
           href: "/auth/signup",
@@ -122,6 +122,8 @@ export function Footer() {
                     <li key={link.label} className="relative">
                       <Link
                         href={link.href}
+                        target={link.target || undefined}
+                        rel={link.target === "_blank" ? "noopener noreferrer" : undefined}
                         className="text-xs sm:text-sm text-gray-300 hover:text-[#3ca2fa] transition-colors font-figtree font-light"
                       >
                         {link.label}
@@ -166,11 +168,20 @@ export function Footer() {
         <hr className="border-t border-gray-700 mt-8 mb-12" />
 
         {/* Footer bottom */}
-        <div className="flex flex-col md:flex-row justify-end items-center text-xs sm:text-sm pb-4">
+        <div className="flex flex-col md:flex-row justify-center items-center text-xs sm:text-sm pb-4 gap-2">
           {/* Copyright */}
-          <p className="text-center md:text-left text-gray-400 font-figtree font-light">
+          <p className="text-center text-gray-400 font-figtree font-light">
             &copy; {new Date().getFullYear()} OptioHire. All rights reserved.
           </p>
+          <span className="text-gray-600">|</span>
+          <Link
+            href="/privacy"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-gray-400 hover:text-[#3ca2fa] transition-colors font-figtree font-light"
+          >
+            Privacy Policy
+          </Link>
         </div>
       </div>
     </footer>

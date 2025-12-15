@@ -15,7 +15,7 @@ import { GradientButton } from '@/components/ui/gradient-button'
 const navigation = [
   { name: 'Home', href: '/' },
   { name: 'Features', href: '/features' },
-  { name: 'Contact', href: '/contact' },
+  { name: 'Support', href: '/contact' },
 ]
 
 export function Navbar() {

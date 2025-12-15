@@ -73,15 +73,15 @@ export default function SignInPage() {
         >
           {/* Sign In Form Card */}
           <div className="p-8 flex flex-col justify-center">
-            <div className="mb-6">
-              <h1 className="text-4xl sm:text-5xl md:text-6xl font-extralight font-figtree leading-[1.05] tracking-tight text-gray-900 mb-2">Welcome Back</h1>
-              <p className="text-gray-600 font-figtree">
-                Don't have an account?{' '}
-                <Link href="/auth/signup" className="text-blue-600 hover:text-blue-700 font-medium">
-                  Create one
-                </Link>
-              </p>
-            </div>
+          <div className="mb-6">
+            <h1 className="text-4xl sm:text-5xl md:text-6xl font-extralight font-figtree leading-[1.05] tracking-tight text-gray-900 mb-2">Welcome Back</h1>
+            <p className="text-gray-600 font-figtree">
+              Don't have an account?{' '}
+              <Link href="/auth/signup" className="text-blue-600 hover:text-blue-700 font-medium">
+                Create one
+              </Link>
+            </p>
+          </div>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             {/* Email Field */}
@@ -149,8 +149,8 @@ export default function SignInPage() {
               {isLoading ? 'Signing In...' : 'Sign In'}
             </button>
           </form>
-          </div>
-        </motion.div>
+        </div>
+      </motion.div>
       </div>
     </div>
   )

@@ -10,7 +10,6 @@ import { cn } from '@/lib/utils'
 
 // Import components directly instead of lazy loading to ensure they're available immediately
 // This prevents features from not working on first load
-import Animated3DShape from '@/components/ui/animated-3d-shape'
 import FinalCTASection from '@/components/ui/final-cta-section'
 import HowItWorksCards from '@/components/ui/how-it-works-cards'
 import ModernBusinessImpact from '@/components/ui/modern-business-impact'
@@ -269,11 +268,6 @@ export default function HomePageContent() {
 
   return (
     <>
-      {/* Animated 3D Background Shape for Content Sections */}
-      <Suspense fallback={null}>
-        <Animated3DShape className="opacity-30" />
-      </Suspense>
-      
       {/* Enhanced Features Section with Gradient Cards */}
       <section className="py-20 px-4 relative bg-black">
         <div className="container mx-auto max-w-6xl relative z-10">

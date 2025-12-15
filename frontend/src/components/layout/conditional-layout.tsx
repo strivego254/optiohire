@@ -17,9 +17,10 @@ export function ConditionalLayout({ children }: ConditionalLayoutProps) {
   const isDashboard = pathname?.startsWith('/dashboard') || false
   const isAuth = pathname?.startsWith('/auth') || false
   const isAdmin = pathname?.startsWith('/admin') || false
+  const isPrivacy = pathname === '/privacy' || false
 
-  // Hide navbar and footer for dashboard, auth, and admin pages
-  if (isDashboard || isAuth || isAdmin) {
+  // Hide navbar and footer for dashboard, auth, admin, and privacy pages
+  if (isDashboard || isAuth || isAdmin || isPrivacy) {
     return <>{children}</>
   }
 

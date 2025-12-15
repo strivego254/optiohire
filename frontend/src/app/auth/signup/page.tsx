@@ -320,8 +320,8 @@ export default function SignUpPage() {
               {isLoading ? 'Creating Account...' : 'Create Account'}
             </button>
           </form>
-          </div>
-        </motion.div>
+        </div>
+      </motion.div>
       </div>
     </div>
   )
