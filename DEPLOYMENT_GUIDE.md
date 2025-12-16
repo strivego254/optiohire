@@ -131,7 +131,7 @@ ls -la .env
 nano .env
 ```
 
-**Update these variables in `.env`:**
+**Update these variables in `.env
 ```bash
 # Change from Supabase to local PostgreSQL
 DATABASE_URL=postgresql://hirebit_user:your_secure_password@localhost:5432/hirebit
@@ -184,44 +184,95 @@ PGPASSWORD=your_secure_production_password psql -h localhost -U hirebit_user -d 
 
 ### **Step 8: Build and Restart Services**
 
-#### **If using PM2:**
+#### **Build Backend:**
 
 ```bash
 # Build backend
 cd backend
 npm run build
+```
 
+#### **Build Frontend (Memory-Optimized for Low-RAM Servers):**
+
+**⚠️ Important:** If your server has limited RAM (1GB or less), use the memory-optimized build:
+
+```bash
+cd frontend
+
+# Option 1: Use the memory-optimized build script (Recommended)
+./build-low-memory.sh
+
+# Option 2: Use the low-memory npm script directly
+npm run build:low-memory
+
+# Option 3: Standard build (if you have enough RAM)
+npm run build
+```
+
+**Note:** The memory-optimized build:
+- Uses 1.5GB Node.js heap size (instead of default ~512MB)
+- Skips TypeScript type checking during build (faster, less memory)
+- Skips ESLint during build (faster, less memory)
+- Cleans previous build artifacts before building
+
+**If build still fails with memory errors:**
+```bash
+# Add swap space (2GB recommended)
+sudo fallocate -l 2G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+
+# Make swap permanent
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+
+# Verify swap is active
+free -h
+
+# Then retry build
+cd frontend
+./build-low-memory.sh
+```
+
+#### **Restart Services:**
+
+**If using PM2:**
+
+```bash
 # Restart PM2 process
 pm2 restart backend
+pm2 restart frontend
 # or
 pm2 restart all
 
 # Check status
 pm2 status
 pm2 logs backend
+pm2 logs frontend
 ```
 
-#### **If using systemd:**
+**If using systemd:**
 
 ```bash
-# Build backend
-cd backend
-npm run build
-
-# Restart service
+# Restart services
 sudo systemctl restart optiohire-backend
+sudo systemctl restart optiohire-frontend
 
 # Check status
 sudo systemctl status optiohire-backend
+sudo systemctl status optiohire-frontend
 ```
 
-#### **If using manual process:**
+**If using manual process:**
 
 ```bash
-# Stop current process (Ctrl+C or kill process)
+# Stop current processes (Ctrl+C or kill process)
 # Then start again
 cd backend
-npm run build
+npm start
+
+# In another terminal
+cd frontend
 npm start
 ```
 
@@ -266,6 +317,7 @@ cd ../frontend && npm install
 # Build
 echo "🔨 Building..."
 cd ../backend && npm run build
+cd ../frontend && npm run build:low-memory
 
 # Restart services
 echo "🔄 Restarting services..."
@@ -305,7 +357,32 @@ sudo systemctl status postgresql
 PGPASSWORD=your_password psql -h localhost -U hirebit_user -d hirebit -c "SELECT version();"
 ```
 
-### **Build Fails**
+### **Build Fails (Memory Issues)**
+
+```bash
+# For frontend builds on low-memory servers:
+cd frontend
+
+# Clean previous attempts
+rm -rf node_modules package-lock.json .next
+
+# Add swap space if not already added
+sudo fallocate -l 2G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+
+# Install with memory limit
+NODE_OPTIONS="--max-old-space-size=1024" npm install --no-audit --no-fund --legacy-peer-deps
+
+# Build with memory-optimized script
+./build-low-memory.sh
+
+# Or use the low-memory build script directly
+npm run build:low-memory
+```
+
+### **Build Fails (General)**
 
 ```bash
 # Clear node_modules and reinstall

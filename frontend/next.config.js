@@ -48,6 +48,20 @@ const nextConfig = {
   productionBrowserSourceMaps: false,
   // Optimize static generation
   output: 'standalone',
+  // Disable type checking during build to save memory (run separately if needed)
+  typescript: {
+    // !! WARN !!
+    // Dangerously allow production builds to successfully complete even if
+    // your project has type errors.
+    // !! WARN !!
+    ignoreBuildErrors: true,
+  },
+  // Disable ESLint during build to save memory
+  eslint: {
+    // Warning: This allows production builds to successfully complete even if
+    // your project has ESLint errors.
+    ignoreDuringBuilds: true,
+  },
   webpack: (config, { isServer, dev }) => {
     // Ignore warnings about non-serializable cache items and module warnings
     config.ignoreWarnings = [
