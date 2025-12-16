@@ -3,7 +3,6 @@
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { Card, CardContent } from '@/components/ui/card'
-import { GradientCard } from '@/components/ui/gradient-card'
 import dynamic from 'next/dynamic'
 import { useRef, Suspense, useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
@@ -17,10 +16,6 @@ import PricingBackground from '@/components/ui/pricing-background'
 
 // Shader background is a client component that mounts in useEffect; import directly to avoid chunk delays
 import { 
-  Brain, 
-  Users, 
-  Zap, 
-  Target, 
   TrendingUp, 
   Clock, 
   Shield,
@@ -37,38 +32,8 @@ export default function HomePageContent() {
   const router = useRouter()
   const backgroundRef = useRef<HTMLDivElement>(null)
   const industryScrollRef = useRef<HTMLDivElement>(null)
-  const featuresScrollRef = useRef<HTMLDivElement>(null)
   const [activeIndustryIndex, setActiveIndustryIndex] = useState(0)
-  const [activeFeatureIndex, setActiveFeatureIndex] = useState(0)
   const industryAnimationRef = useRef<number>()
-  const featuresAnimationRef = useRef<number>()
-
-  const coreFeatures = [
-    {
-      icon: Brain,
-      title: 'AI-Powered Candidate Screening',
-      description: 'Advanced machine learning algorithms analyze resumes, cover letters, and portfolios to identify the best candidates in seconds.',
-      benefits: ['95% accuracy rate', '10x faster screening', 'Bias-free evaluation'],
-    },
-    {
-      icon: Users,
-      title: 'Intelligent Candidate Pipeline',
-      description: 'Automatically organize, score, and rank candidates with smart categorization and predictive analytics.',
-      benefits: ['Automated ranking', 'Smart tagging', 'Pipeline insights'],
-    },
-    {
-      icon: Zap,
-      title: 'Automated Workflow Engine',
-      description: 'Streamline your entire recruitment process from job posting to offer letter with intelligent automation.',
-      benefits: ['Zero manual tasks', 'Custom workflows', 'Smart notifications'],
-    },
-    {
-      icon: Target,
-      title: 'Advanced Analytics & Insights',
-      description: 'Get deep insights into your recruitment performance with real-time dashboards and predictive analytics.',
-      benefits: ['Real-time metrics', 'Predictive insights', 'ROI tracking'],
-    },
-  ]
 
   const industrySolutions = [
     {
@@ -128,7 +93,7 @@ export default function HomePageContent() {
       icon: TrendingUp,
       title: 'Higher Quality Hires',
       description: 'Improve candidate quality with AI-powered matching and predictive analytics for better outcomes.',
-      value: '40% better retention',
+      value: '40% retention',
       color: 'from-[#2D2DDD] to-pink-600',
     },
     {
@@ -203,149 +168,8 @@ export default function HomePageContent() {
     };
   }, [industrySolutions.length]);
 
-  // Track animation progress for Features cards (mobile only)
-  useEffect(() => {
-    const container = featuresScrollRef.current;
-    if (!container) return;
-
-    const scrollElement = container.querySelector('.features-scroll') as HTMLElement;
-    if (!scrollElement) return;
-
-    // Track animation progress using requestAnimationFrame
-    let startTime = Date.now();
-    const duration = 30000; // 30 seconds (matches CSS animation duration)
-
-    const updateProgress = () => {
-      const elapsed = (Date.now() - startTime) % duration;
-      const progress = elapsed / duration;
-      
-      // Calculate which card should be active based on progress
-      const currentIndex = Math.floor(progress * coreFeatures.length) % coreFeatures.length;
-      setActiveFeatureIndex(currentIndex);
-
-      featuresAnimationRef.current = requestAnimationFrame(updateProgress);
-    };
-
-    // Also use IntersectionObserver as a backup to detect which card is most visible
-    const observer = new IntersectionObserver(
-      (entries) => {
-        let maxRatio = 0;
-        let mostVisibleIndex = activeFeatureIndex;
-
-        entries.forEach((entry) => {
-          if (entry.isIntersecting && entry.intersectionRatio > maxRatio) {
-            maxRatio = entry.intersectionRatio;
-            const cardIndex = parseInt(entry.target.getAttribute('data-card-index') || '0');
-            mostVisibleIndex = cardIndex % coreFeatures.length;
-          }
-        });
-
-        if (maxRatio > 0.3) {
-          setActiveFeatureIndex(mostVisibleIndex);
-        }
-      },
-      {
-        root: container,
-        rootMargin: '-20% 0px -20% 0px',
-        threshold: [0, 0.3, 0.5, 0.7, 1],
-      }
-    );
-
-    // Observe all cards
-    const cards = container.querySelectorAll('[data-card-index]');
-    cards.forEach((card) => observer.observe(card));
-
-    // Start tracking animation progress
-    updateProgress();
-
-    return () => {
-      observer.disconnect();
-      if (featuresAnimationRef.current) {
-        cancelAnimationFrame(featuresAnimationRef.current);
-      }
-    };
-  }, [coreFeatures.length]);
-
   return (
     <>
-      {/* Enhanced Features Section with Gradient Cards */}
-      <section className="py-20 px-4 relative bg-black">
-        <div className="container mx-auto max-w-6xl relative z-10">
-          <motion.div
-            initial={{ opacity: 1, y: 0 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ type: 'tween', duration: 0.5, ease: 'easeOut' }}
-            className="text-center mb-16 gpu-accelerated"
-          >
-            <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md border border-white/20 rounded-full px-4 py-2 mb-6">
-              <Brain className="w-4 h-4 text-primary" />
-              <span className="text-sm font-medium text-white/80">Your all-in-one AI engine</span>
-            </div>
-            <h2 className="text-[27px] sm:text-[57px] md:text-[69px] font-extralight font-figtree leading-[1.05] tracking-tight mb-4 text-white">
-              <span>Powerful</span>{' '}
-              <span>AI-Driven Features</span>
-            </h2>
-            <p className="text-base sm:text-xl font-figtree font-light text-gray-300 max-w-3xl mx-auto">
-              Transform your recruitment process with cutting-edge AI technology that learns, adapts, and delivers exceptional results.
-            </p>
-          </motion.div>
-
-          {/* Mobile: Auto-scrolling horizontal container */}
-          <div className="lg:hidden">
-            <div ref={featuresScrollRef} className="overflow-hidden">
-              <div className="flex gap-4 features-scroll">
-                {/* Duplicate cards for seamless loop */}
-                {[...coreFeatures, ...coreFeatures].map((feature, index) => (
-                  <div 
-                    key={`${feature.title}-${index}`} 
-                    data-card-index={index}
-                    className="flex-shrink-0 w-[85vw] max-w-sm"
-                  >
-                    <GradientCard
-                      icon={feature.icon}
-                      title={feature.title}
-                      description={feature.description}
-                      benefits={feature.benefits}
-                      index={index % coreFeatures.length}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-            
-            {/* Progress Dots */}
-            <div className="flex justify-center items-center gap-2 mt-6">
-              {coreFeatures.map((_, index) => (
-                <button
-                  key={index}
-                  className={cn(
-                    "transition-all duration-300 rounded-full",
-                    activeFeatureIndex === index
-                      ? "w-8 h-2 bg-[#2D2DDD]"
-                      : "w-2 h-2 bg-white/30 hover:bg-white/50"
-                  )}
-                  aria-label={`Go to feature ${index + 1}`}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* Desktop: Grid layout */}
-          <div className="hidden lg:grid grid-cols-2 gap-x-4 gap-y-2 md:gap-x-8 md:gap-y-4">
-            {coreFeatures.map((feature, index) => (
-              <GradientCard
-                key={feature.title}
-                icon={feature.icon}
-                title={feature.title}
-                description={feature.description}
-                benefits={feature.benefits}
-                index={index}
-              />
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* Industry Solutions Section */}
       <section className="pt-20 pb-8 px-4 relative overflow-hidden bg-black">
         <div ref={backgroundRef} className="absolute inset-0 w-full h-full">
@@ -461,25 +285,6 @@ export default function HomePageContent() {
             }
             
             .industry-solutions-scroll:hover {
-              animation-play-state: paused;
-            }
-
-            @keyframes features-scroll {
-              0% {
-                transform: translateX(0);
-              }
-              100% {
-                transform: translateX(calc(-50% - 1rem));
-              }
-            }
-            
-            .features-scroll {
-              animation: features-scroll 30s linear infinite;
-              display: flex;
-              width: fit-content;
-            }
-            
-            .features-scroll:hover {
               animation-play-state: paused;
             }
           `

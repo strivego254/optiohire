@@ -161,7 +161,8 @@ export default function ModernBusinessImpact({
         </div>
 
         {/* Desktop: Grid layout */}
-        <div className="hidden lg:grid grid-cols-2 gap-6 sm:gap-8">
+        {/* Large screens: 2 columns, XL screens: 4 columns in one row */}
+        <div className="hidden lg:grid lg:grid-cols-2 xl:grid-cols-4 gap-6 sm:gap-8">
           {projects.map((project, index) => (
             <ImpactCard key={project.title} project={project} index={index} />
           ))}
@@ -239,7 +240,7 @@ function ImpactCard({ project, index }: { project: ProjectData; index: number })
               alt={project.title}
               fill
               className="object-cover rounded-xl"
-              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 50vw, 25vw"
               loading="lazy"
               quality={85}
             />
