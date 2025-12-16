@@ -12,3 +12,4 @@ echo "✅ Fixed .env file"
 echo "Current DATABASE_URL:"
 grep "^DATABASE_URL=" .env
 
+

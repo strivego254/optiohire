@@ -36,11 +36,31 @@ export const pool = new Pool({
   connectionTimeoutMillis: 10000,
 })
 
+// Test connection on startup
+pool.on('error', (err) => {
+  console.error('[DB] Unexpected error on idle client:', err)
+})
+
+// Test connection
+pool.connect()
+  .then((client) => {
+    console.log('[DB] ✅ Database connection successful')
+    client.release()
+  })
+  .catch((err) => {
+    console.error('[DB] ❌ Database connection failed:', err.message)
+    console.error('[DB] Connection string (masked):', maskedUrl)
+  })
+
 export async function query<T = any>(text: string, params?: any[]): Promise<{ rows: T[] }> {
   const client = await pool.connect()
   try {
     const res = await client.query(text, params)
     return { rows: res.rows as T[] }
+  } catch (error: any) {
+    console.error('[DB] Query error:', error.message)
+    console.error('[DB] Query:', text.substring(0, 100))
+    throw error
   } finally {
     client.release()
   }

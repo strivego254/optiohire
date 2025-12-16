@@ -32,3 +32,4 @@ echo ""
 echo "Testing with URL-encoded connection string..."
 PGPASSWORD="$DB_PASSWORD" psql "postgresql://hirebit_user:HireBit%40254%23.%24@localhost:5432/hirebit" -c "SELECT current_database(), current_user;"
 
+

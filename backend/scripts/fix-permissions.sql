@@ -8,3 +8,4 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO hirebit_user
 -- Make user owner of the database
 ALTER DATABASE hirebit OWNER TO hirebit_user;
 
+
