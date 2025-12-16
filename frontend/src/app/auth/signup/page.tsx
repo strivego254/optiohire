@@ -83,10 +83,10 @@ export default function SignUpPage() {
   }
 
   return (
-    <div className="w-full min-h-screen bg-gray-50 flex items-center justify-center p-4">
+    <div className="w-full min-h-screen bg-gray-50 flex items-start justify-center p-4 py-8">
       <div className="w-full max-w-4xl flex items-start gap-4">
         {/* Left Aligned Button */}
-        <div className="flex-shrink-0 pt-0">
+        <div className="flex-shrink-0 pt-2">
           <button
             onClick={() => router.push('/')}
             className="px-4 py-2 bg-white rounded-full flex items-center gap-2 hover:bg-gray-100 transition-all text-gray-900 font-figtree text-sm shadow-lg border border-gray-200"
@@ -100,10 +100,10 @@ export default function SignUpPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="flex-1 max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-200 relative z-10"
+          className="flex-1 max-w-md bg-white rounded-3xl shadow-2xl border border-gray-200 relative z-10 max-h-[calc(100vh-4rem)] overflow-y-auto"
         >
           {/* Create Account Form Card */}
-          <div className="p-8 flex flex-col justify-center relative overflow-y-auto max-h-[90vh]">
+          <div className="p-8 flex flex-col">
             <div className="mb-6">
             <h1 className="text-4xl sm:text-5xl md:text-6xl font-extralight font-figtree leading-[1.05] tracking-tight text-gray-900 mb-2">Create an Account</h1>
             <p className="text-gray-600 font-figtree">
@@ -114,7 +114,7 @@ export default function SignUpPage() {
             </p>
           </div>
 
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 flex-1">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             {/* Name Field */}
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2 font-figtree">
