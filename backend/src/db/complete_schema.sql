@@ -21,6 +21,29 @@ EXCEPTION
 END $$;
 
 -- ============================================================================
+-- FUNCTIONS (Must be created before tables that use them)
+-- ============================================================================
+
+-- Function to update updated_at timestamp (safely handles missing column)
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- Try to set updated_at, catch error if column doesn't exist
+  BEGIN
+    NEW.updated_at = now();
+  EXCEPTION
+    WHEN SQLSTATE '42703' THEN
+      -- Column doesn't exist (error 42703), skip setting it
+      NULL;
+    WHEN OTHERS THEN
+      -- Re-raise other errors
+      RAISE;
+  END;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================================
 -- USERS TABLE (Backend Authentication)
 -- ============================================================================
 -- NOTE: Users table must be created FIRST because companies references it
@@ -493,25 +516,7 @@ CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_logs(action);
 -- ============================================================================
 -- UPDATED_AT TRIGGERS
 -- ============================================================================
-
--- Function to update updated_at timestamp (safely handles missing column)
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-  -- Try to set updated_at, catch error if column doesn't exist
-  BEGIN
-    NEW.updated_at = now();
-  EXCEPTION
-    WHEN SQLSTATE '42703' THEN
-      -- Column doesn't exist (error 42703), skip setting it
-      NULL;
-    WHEN OTHERS THEN
-      -- Re-raise other errors
-      RAISE;
-  END;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+-- Note: update_updated_at_column() function is defined earlier in this file
 
 -- Apply updated_at triggers to all tables that need it
 DROP TRIGGER IF EXISTS trg_companies_updated_at ON companies;

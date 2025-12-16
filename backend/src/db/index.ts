@@ -6,12 +6,16 @@ if (!connectionString) {
   throw new Error('DATABASE_URL is not set')
 }
 
+// SSL configuration:
+// - Local PostgreSQL: Set DB_SSL=false (no SSL needed)
+// - Supabase/Remote: Set DB_SSL=true or omit (SSL required)
+const useSSL = process.env.DB_SSL !== 'false'
+
 export const pool = new Pool({
   connectionString,
-  // Supabase requires SSL by default
-  // SSL is enabled by default for Supabase connections
-  ssl: process.env.DB_SSL === 'false' ? undefined : { rejectUnauthorized: false },
-  // Connection pool settings optimized for Supabase
+  // SSL only for remote connections (Supabase), not local PostgreSQL
+  ssl: useSSL ? { rejectUnauthorized: false } : undefined,
+  // Connection pool settings
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000,
