@@ -245,12 +245,13 @@ export class EmailReader {
   }
 
   /**
-   * Find job posting by exact subject match (case-insensitive)
-   * Email subject must match job_title exactly
+   * Find job posting by subject match (case-insensitive)
+   * Email subject must contain the job_title (allows extra text in subject)
    */
   private async findJobByExactSubject(emailSubject: string): Promise<any | null> {
     try {
-      const { rows } = await query(
+      // First try exact match (for backwards compatibility)
+      let { rows } = await query(
         `SELECT jp.job_posting_id, jp.company_id, jp.job_title, jp.job_description, 
                 jp.skills_required as required_skills, jp.application_deadline, 
                 jp.interview_start_time, jp.meeting_link, jp.created_at, jp.updated_at
@@ -266,7 +267,34 @@ export class EmailReader {
         return rows[0]
       }
       
-      return null
+      // If exact match fails, try substring match (job title contained in subject)
+      // This handles cases where subject is "JOB TITLE - additional text"
+      const normalizedSubject = emailSubject.toLowerCase().trim()
+      const { rows: allActiveJobs } = await query(
+        `SELECT jp.job_posting_id, jp.company_id, jp.job_title, jp.job_description, 
+                jp.skills_required as required_skills, jp.application_deadline, 
+                jp.interview_start_time, jp.meeting_link, jp.created_at, jp.updated_at
+         FROM job_postings jp
+         WHERE (jp.status IS NULL OR jp.status = 'ACTIVE' OR jp.status = '')
+         ORDER BY jp.created_at DESC`
+      )
+      
+      // Find the best match (longest job title that appears in subject)
+      let bestMatch: any = null
+      let longestMatchLength = 0
+      
+      for (const job of allActiveJobs) {
+        const normalizedJobTitle = job.job_title.toLowerCase().trim()
+        if (normalizedSubject.includes(normalizedJobTitle)) {
+          // Prefer longer, more specific matches
+          if (normalizedJobTitle.length > longestMatchLength) {
+            longestMatchLength = normalizedJobTitle.length
+            bestMatch = job
+          }
+        }
+      }
+      
+      return bestMatch
     } catch (error) {
       logger.error('Error finding job by subject:', error)
       return null
