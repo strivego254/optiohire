@@ -130,3 +130,4 @@ The updated Nginx config now:
 ✅ Static files load with 200 OK status
 ✅ UI renders correctly
 
+
