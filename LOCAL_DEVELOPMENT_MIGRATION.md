@@ -177,14 +177,14 @@ import bcrypt from 'bcrypt'
 
 async function seedLocal() {
   try {
-    // Create admin user
-    const passwordHash = await bcrypt.hash('Admin@hirebit2025', 10)
+    // Create admin user (do NOT hardcode real credentials in docs)
+    const passwordHash = await bcrypt.hash(process.env.ADMIN_PASSWORD || 'CHANGE_ME', 10)
     
     await query(`
       INSERT INTO users (email, password_hash, role, is_active)
       VALUES ($1, $2, $3, $4)
       ON CONFLICT (email) DO NOTHING
-    `, ['hirebitapplications@gmail.com', passwordHash, 'admin', true])
+    `, [process.env.ADMIN_EMAIL || 'admin@example.com', passwordHash, 'admin', true])
     
     console.log('✅ Local database seeded successfully')
   } catch (error) {

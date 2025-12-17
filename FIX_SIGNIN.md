@@ -37,33 +37,24 @@ END $$;
 UPDATE users SET role = 'user' WHERE role IS NULL;
 UPDATE users SET is_active = true WHERE is_active IS NULL;
 
--- Create admin user if it doesn't exist
-INSERT INTO users (email, password_hash, role, is_active)
-VALUES (
-  'hirebitapplications@gmail.com',
-  '$2b$10$jVhbE8a4vYJ1JRFkh.JsI.N9DrEJa6NrLcFzrbgdy6NgmO5SohAQm',
-  'admin',
-  true
-)
-ON CONFLICT (email) DO UPDATE
-SET 
-  password_hash = EXCLUDED.password_hash,
-  role = 'admin',
-  is_active = true;
+-- Create an admin user manually (recommended)
+-- Do NOT hardcode credentials in SQL files.
+-- Use the helper script instead:
+--   cd backend
+--   ADMIN_EMAIL="admin@example.com" ADMIN_PASSWORD="StrongPassword!" node ./scripts/create-admin-user.cjs
 ```
 
 ## After Running Schema
 1. Restart backend (if needed)
-2. Try signing in with:
-   - Email: `hirebitapplications@gmail.com`
-   - Password: `Admin@hirebit2025`
+2. Create an admin user using the helper script:
+   - `ADMIN_EMAIL="admin@example.com" ADMIN_PASSWORD="StrongPassword!" node ./backend/scripts/create-admin-user.cjs`
 
 ## Verify
 After running the schema, test the connection:
 ```bash
 curl -X POST http://localhost:3001/auth/signin \
   -H "Content-Type: application/json" \
-  -d '{"email":"hirebitapplications@gmail.com","password":"Admin@hirebit2025"}'
+  -d '{"email":"YOUR_ADMIN_EMAIL","password":"YOUR_ADMIN_PASSWORD"}'
 ```
 
 Should return a token if successful.

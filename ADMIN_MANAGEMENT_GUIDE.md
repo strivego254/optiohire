@@ -17,13 +17,13 @@
 ### Login as Admin
 1. **Direct Admin Login URL:**
    ```
-   http://localhost:3000/admin/login?email=hirebitapplications@gmail.com&password=Admin@hirebit2025
+   http://localhost:3000/admin/login?email=YOUR_ADMIN_EMAIL&password=YOUR_ADMIN_PASSWORD
    ```
 
 2. **Manual Login:**
    - Navigate to: `/admin/login`
-   - Email: `hirebitapplications@gmail.com`
-   - Password: `Admin@hirebit2025`
+   - Email: `YOUR_ADMIN_EMAIL`
+   - Password: `YOUR_ADMIN_PASSWORD`
    - Click "Sign In"
 
 3. **After Login:**

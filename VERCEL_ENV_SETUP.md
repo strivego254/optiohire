@@ -15,13 +15,13 @@ You need to add these environment variables in your Vercel project settings:
 
 #### Database Configuration (REQUIRED)
 ```
-DATABASE_URL=postgresql://postgres.qijibjotmwbikzwtkcut:HireBit%40254%23.%24@aws-1-eu-west-3.pooler.supabase.com:5432/postgres
+DATABASE_URL=postgresql://postgres.[PROJECT_REF]:YOUR_PASSWORD_URL_ENCODED@aws-0-[REGION].pooler.supabase.com:6543/postgres
 DB_SSL=true
 ```
 
 #### JWT Secret (REQUIRED)
 ```
-JWT_SECRET=38970ddabcd7f6a37d4176d9c3f2e06571a48ccf173a13d8a070e5e207ac2e96b8e5d569e95fb29a4bfe9527b689387525eda70219e38411a8e069e27eef6942
+JWT_SECRET=your_strong_jwt_secret_here
 ```
 
 #### Backend URL (Optional - if using separate backend)
@@ -90,13 +90,13 @@ vercel login
 
 # Set environment variables
 vercel env add DATABASE_URL production
-# Paste: postgresql://postgres.qijibjotmwbikzwtkcut:HireBit%40254%23.%24@aws-1-eu-west-3.pooler.supabase.com:5432/postgres
+# Paste: your DATABASE_URL (do NOT commit it anywhere)
 
 vercel env add DB_SSL production
 # Paste: true
 
 vercel env add JWT_SECRET production
-# Paste: 38970ddabcd7f6a37d4176d9c3f2e06571a48ccf173a13d8a070e5e207ac2e96b8e5d569e95fb29a4bfe9527b689387525eda70219e38411a8e069e27eef6942
+# Paste: your JWT_SECRET (generate a strong random secret)
 
 # Redeploy
 vercel --prod

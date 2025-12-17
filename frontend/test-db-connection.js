@@ -1,26 +1,24 @@
 #!/usr/bin/env node
 /**
- * Database Connection Test Script
- * Tests both pooler and direct connections to Supabase
+ * Database Connection Test Script (no secrets in repo)
+ *
+ * Provide one or more connection strings via env vars:
+ *   - DATABASE_URL
+ *   - DATABASE_URL_POOLER
+ *   - DATABASE_URL_DIRECT
+ *
+ * Example:
+ *   DATABASE_URL="postgresql://user:pass@host:5432/db" node test-db-connection.js
  */
 
 const pg = require('pg');
 const { Pool } = pg;
 
 const connections = [
-  {
-    name: 'Pooler Connection',
-    connectionString: 'postgresql://postgres.qijibjotmwbikzwtkcut:HireBit%40254%23.%24@aws-0-us-east-1.pooler.supabase.com:6543/postgres',
-  },
-  {
-    name: 'Direct Connection',
-    connectionString: 'postgresql://postgres:HireBit%40254%23.%24@db.qijibjotmwbikzwtkcut.supabase.co:5432/postgres',
-  },
-  {
-    name: 'Pooler with pgbouncer',
-    connectionString: 'postgresql://postgres.qijibjotmwbikzwtkcut:HireBit%40254%23.%24@aws-0-us-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true',
-  },
-];
+  { name: 'DATABASE_URL', connectionString: process.env.DATABASE_URL },
+  { name: 'DATABASE_URL_POOLER', connectionString: process.env.DATABASE_URL_POOLER },
+  { name: 'DATABASE_URL_DIRECT', connectionString: process.env.DATABASE_URL_DIRECT },
+].filter((c) => typeof c.connectionString === 'string' && c.connectionString.trim().length > 0);
 
 async function testConnection(name, connectionString) {
   console.log(`\n🔍 Testing ${name}...`);
@@ -51,15 +49,22 @@ async function testConnection(name, connectionString) {
 }
 
 async function main() {
-  console.log('🚀 Testing Supabase Database Connections...\n');
+  console.log('🚀 Testing Database Connections...\n');
+  
+  if (connections.length === 0) {
+    console.log('❌ No connection strings provided.\n');
+    console.log('Set one of: DATABASE_URL, DATABASE_URL_POOLER, DATABASE_URL_DIRECT\n');
+    process.exit(1);
+  }
   
   let success = false;
   for (const conn of connections) {
     const result = await testConnection(conn.name, conn.connectionString);
     if (result) {
       success = true;
-      console.log(`\n✅ Use this connection string in your .env.local:`);
-      console.log(`DATABASE_URL=${conn.connectionString}\n`);
+      console.log(`\n✅ Connection works. Use this connection string in your environment (do NOT commit it):`);
+      const masked = conn.connectionString.replace(/(postgresql:\/\/[^:]+:)[^@]+(@)/, '$1***$2');
+      console.log(`DATABASE_URL=${masked}\n`);
       break;
     }
   }

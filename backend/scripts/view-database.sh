@@ -13,19 +13,54 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Database configuration (from .env.local or defaults)
-DB_NAME="${DB_NAME:-hirebit_local}"
-DB_USER="${DB_USER:-hirebit_user}"
-DB_PASSWORD="${DB_PASSWORD:-hirebit_local_dev}"
+# ----------------------------------------------------------------------------
+# Load backend environment variables (preferred)
+# - Never hardcode passwords in this repo.
+# - Prefer DATABASE_URL from backend/.env so scripts match the running backend.
+# ----------------------------------------------------------------------------
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BACKEND_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+ENV_FILE="${ENV_FILE:-$BACKEND_DIR/.env}"
 
-# Export password for psql
-export PGPASSWORD=$DB_PASSWORD
+if [ -f "$ENV_FILE" ]; then
+  # shellcheck disable=SC1090
+  set -a
+  source "$ENV_FILE"
+  set +a
+fi
+
+# Fallback database configuration (only if DATABASE_URL is not set)
+DB_HOST="${DB_HOST:-localhost}"
+DB_PORT="${DB_PORT:-5432}"
+DB_NAME="${DB_NAME:-hirebit}"
+DB_USER="${DB_USER:-hirebit_user}"
+DB_PASSWORD="${DB_PASSWORD:-}"
+
+psql_cmd() {
+    if [ -n "${DATABASE_URL:-}" ]; then
+        # Use connection string directly (supports URL-encoded passwords)
+        psql "$DATABASE_URL" "$@"
+        return $?
+    fi
+
+    if [ -z "$DB_PASSWORD" ]; then
+        echo -e "${YELLOW}⚠️  DATABASE_URL is not set and DB_PASSWORD is empty.${NC}"
+        echo -e "${YELLOW}Set DATABASE_URL in backend/.env (recommended) or export DB_PASSWORD before running this script.${NC}"
+        return 1
+    fi
+
+    PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" "$@"
+}
 
 # Function to list all tables
 list_tables() {
-    echo -e "${BLUE}📊 Listing all tables in database: ${DB_NAME}${NC}"
+    if [ -n "${DATABASE_URL:-}" ]; then
+        echo -e "${BLUE}📊 Listing all tables using DATABASE_URL${NC}"
+    else
+        echo -e "${BLUE}📊 Listing all tables in database: ${DB_NAME}${NC}"
+    fi
     echo ""
-    psql -h localhost -U $DB_USER -d $DB_NAME -c "\dt"
+    psql_cmd -c "\dt"
 }
 
 # Function to show table structure
@@ -38,7 +73,7 @@ show_table_structure() {
     fi
     echo -e "${BLUE}📋 Structure of table: $1${NC}"
     echo ""
-    psql -h localhost -U $DB_USER -d $DB_NAME -c "\d $1"
+    psql_cmd -c "\d $1"
 }
 
 # Function to view table data
@@ -54,7 +89,7 @@ view_table_data() {
     LIMIT=${2:-20}
     echo -e "${BLUE}📄 Data from table: $1 (showing first $LIMIT rows)${NC}"
     echo ""
-    psql -h localhost -U $DB_USER -d $DB_NAME -c "SELECT * FROM $1 LIMIT $LIMIT;"
+    psql_cmd -c "SELECT * FROM $1 LIMIT $LIMIT;"
 }
 
 # Function to count rows in table
@@ -66,7 +101,7 @@ count_rows() {
     fi
     echo -e "${BLUE}🔢 Row count in table: $1${NC}"
     echo ""
-    psql -h localhost -U $DB_USER -d $DB_NAME -c "SELECT COUNT(*) as total_rows FROM $1;"
+    psql_cmd -c "SELECT COUNT(*) as total_rows FROM $1;"
 }
 
 # Function to show all data from a table (no limit)
@@ -78,20 +113,30 @@ view_all_data() {
     fi
     echo -e "${BLUE}📄 All data from table: $1${NC}"
     echo ""
-    psql -h localhost -U $DB_USER -d $DB_NAME -c "SELECT * FROM $1;"
+    psql_cmd -c "SELECT * FROM $1;"
 }
 
 # Function to show database info
 show_db_info() {
     echo -e "${BLUE}ℹ️  Database Information${NC}"
     echo ""
-    echo "Database: $DB_NAME"
-    echo "User: $DB_USER"
-    echo "Host: localhost"
+    if [ -n "${DATABASE_URL:-}" ]; then
+        echo "Connection: DATABASE_URL"
+    else
+        echo "Database: $DB_NAME"
+        echo "User: $DB_USER"
+        echo "Host: $DB_HOST"
+        echo "Port: $DB_PORT"
+    fi
     echo ""
-    psql -h localhost -U $DB_USER -d $DB_NAME -c "SELECT version();"
+    psql_cmd -c "SELECT version();"
     echo ""
-    psql -h localhost -U $DB_USER -d $DB_NAME -c "SELECT pg_database.datname, pg_size_pretty(pg_database_size(pg_database.datname)) AS size FROM pg_database WHERE datname = '$DB_NAME';"
+    if [ -n "${DATABASE_URL:-}" ]; then
+        # Works for any DB in DATABASE_URL
+        psql_cmd -c "SELECT current_database() AS db, pg_size_pretty(pg_database_size(current_database())) AS size;"
+    else
+        psql_cmd -c "SELECT pg_database.datname, pg_size_pretty(pg_database_size(pg_database.datname)) AS size FROM pg_database WHERE datname = '$DB_NAME';"
+    fi
 }
 
 # Function to show help
@@ -124,7 +169,7 @@ connect_db() {
     echo -e "${GREEN}🔌 Connecting to database...${NC}"
     echo "Type '\\q' to exit"
     echo ""
-    psql -h localhost -U $DB_USER -d $DB_NAME
+    psql_cmd
 }
 
 # Main command handler

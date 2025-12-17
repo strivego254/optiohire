@@ -737,79 +737,15 @@ CREATE TRIGGER trg_user_preferences_updated_at
 -- INITIAL ADMIN USER
 -- ============================================================================
 
--- Create default admin user
--- Email: hirebitapplications@gmail.com
--- Password: Admin@hirebit2025
--- Uses dynamic SQL to handle optional columns gracefully
-DO $$ 
-DECLARE
-  has_username boolean;
-  has_name boolean;
-  has_company_role boolean;
-  has_role boolean;
-  has_is_active boolean;
-  has_updated_at boolean;
-  sql_text text;
-BEGIN
-  -- Check which columns exist
-  SELECT EXISTS (
-    SELECT 1 FROM information_schema.columns 
-    WHERE table_name = 'users' AND column_name = 'username'
-  ) INTO has_username;
-  
-  SELECT EXISTS (
-    SELECT 1 FROM information_schema.columns 
-    WHERE table_name = 'users' AND column_name = 'name'
-  ) INTO has_name;
-  
-  SELECT EXISTS (
-    SELECT 1 FROM information_schema.columns 
-    WHERE table_name = 'users' AND column_name = 'company_role'
-  ) INTO has_company_role;
-  
-  SELECT EXISTS (
-    SELECT 1 FROM information_schema.columns 
-    WHERE table_name = 'users' AND column_name = 'role'
-  ) INTO has_role;
-  
-  SELECT EXISTS (
-    SELECT 1 FROM information_schema.columns 
-    WHERE table_name = 'users' AND column_name = 'is_active'
-  ) INTO has_is_active;
-  
-  SELECT EXISTS (
-    SELECT 1 FROM information_schema.columns 
-    WHERE table_name = 'users' AND column_name = 'updated_at'
-  ) INTO has_updated_at;
-  
-  -- Build dynamic SQL based on existing columns
-  sql_text := 'INSERT INTO users (email, password_hash';
-  IF has_username THEN sql_text := sql_text || ', username'; END IF;
-  IF has_name THEN sql_text := sql_text || ', name'; END IF;
-  IF has_company_role THEN sql_text := sql_text || ', company_role'; END IF;
-  IF has_role THEN sql_text := sql_text || ', role'; END IF;
-  IF has_is_active THEN sql_text := sql_text || ', is_active'; END IF;
-  sql_text := sql_text || ') VALUES (';
-  sql_text := sql_text || quote_literal('hirebitapplications@gmail.com') || ', ';
-  sql_text := sql_text || quote_literal('$2b$10$jVhbE8a4vYJ1JRFkh.JsI.N9DrEJa6NrLcFzrbgdy6NgmO5SohAQm');
-  IF has_username THEN sql_text := sql_text || ', ' || quote_literal('admin'); END IF;
-  IF has_name THEN sql_text := sql_text || ', NULL'; END IF;
-  IF has_company_role THEN sql_text := sql_text || ', NULL'; END IF;
-  IF has_role THEN sql_text := sql_text || ', ' || quote_literal('admin'); END IF;
-  IF has_is_active THEN sql_text := sql_text || ', true'; END IF;
-  sql_text := sql_text || ') ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash';
-  IF has_username THEN sql_text := sql_text || ', username = COALESCE(users.username, EXCLUDED.username)'; END IF;
-  IF has_role THEN sql_text := sql_text || ', role = ' || quote_literal('admin'); END IF;
-  IF has_is_active THEN sql_text := sql_text || ', is_active = true'; END IF;
-  IF has_updated_at THEN sql_text := sql_text || ', updated_at = now()'; END IF;
-  
-  EXECUTE sql_text;
-  
-  RAISE NOTICE 'Admin user created/updated successfully';
-EXCEPTION
-  WHEN OTHERS THEN
-    RAISE NOTICE 'Error creating admin user: %', SQLERRM;
-END $$;
+-- SECURITY NOTE:
+-- Do NOT seed a default admin user (email/password) from a public repository.
+-- Create an admin user manually after installing the schema.
+--
+-- Recommended script (from the repo):
+--   cd backend
+--   ADMIN_EMAIL="admin@example.com" ADMIN_PASSWORD="StrongPassword!" node ./scripts/create-admin-user.cjs
+--
+-- Or create a user via the app signup and promote it to admin directly in the database.
 
 -- ============================================================================
 -- END OF COMPLETE SCHEMA

@@ -3,7 +3,7 @@
 ## ✅ Current Status
 
 - **Schema**: Successfully created in Supabase
-- **Admin User**: Created (`hirebitapplications@gmail.com` / `Admin@hirebit2025`)
+- **Admin User**: Created (check your own admin credentials; do not store them in this repo)
 - **Connection**: Needs to be configured
 
 ## 🔧 Step-by-Step Setup
@@ -25,7 +25,7 @@
 
 ### 2. Update `backend/.env`
 
-Replace `[YOUR-PASSWORD]` with your actual password: `HireBit@254#.$`
+Replace `[YOUR-PASSWORD]` with your actual Supabase database password.
 
 **Important**: URL-encode special characters in password:
 - `@` becomes `%40`
@@ -33,9 +33,9 @@ Replace `[YOUR-PASSWORD]` with your actual password: `HireBit@254#.$`
 - `.` stays as `.`
 - `$` stays as `$`
 
-**Example**:
+**Example** (placeholder):
 ```bash
-DATABASE_URL=postgresql://postgres:HireBit%40254%23.%24@db.qijibjotmwbikzwtkcut.supabase.co:5432/postgres
+DATABASE_URL=postgresql://postgres:YOUR_PASSWORD_URL_ENCODED@db.qijibjotmwbikzwtkcut.supabase.co:5432/postgres
 ```
 
 ### 3. Test Connection
@@ -54,10 +54,10 @@ curl http://localhost:3001/health/db
 # Test admin login
 curl -X POST http://localhost:3001/auth/signin \
   -H "Content-Type: application/json" \
-  -d '{"email":"hirebitapplications@gmail.com","password":"Admin@hirebit2025"}'
+  -d '{"email":"YOUR_ADMIN_EMAIL","password":"YOUR_ADMIN_PASSWORD"}'
 
 # Should return:
-# {"token":"...","user":{"user_id":"...","email":"hirebitapplications@gmail.com","role":"admin"}}
+# {"token":"...","user":{"user_id":"...","email":"YOUR_ADMIN_EMAIL","role":"admin"}}
 ```
 
 ## 🔄 If Connection Fails
@@ -67,8 +67,10 @@ curl -X POST http://localhost:3001/auth/signin \
 If direct connection (port 5432) fails, use the pooler:
 
 ```bash
-DATABASE_URL=postgresql://postgres.qijibjotmwbikzwtkcut:HireBit%40254%23.%24@aws-0-us-east-1.pooler.supabase.com:6543/postgres
+ DATABASE_URL=postgresql://postgres.[PROJECT_REF]:YOUR_PASSWORD_URL_ENCODED@aws-0-[REGION].pooler.supabase.com:6543/postgres
 ```
+
+**Important:** Never commit real passwords, JWT secrets, or API keys to GitHub.
 
 ### Option 2: Check Network/Firewall
 
@@ -101,7 +103,7 @@ If local connection doesn't work, you can:
    ```
 
 2. **Access Admin Dashboard**:
-   - Go to: http://localhost:3000/admin/login?email=hirebitapplications@gmail.com&password=Admin@hirebit2025
+   - Go to: http://localhost:3000/admin/login?email=YOUR_ADMIN_EMAIL&password=YOUR_ADMIN_PASSWORD
    - Or manually login at: http://localhost:3000/admin/login
 
 3. **Create Test Data**:
