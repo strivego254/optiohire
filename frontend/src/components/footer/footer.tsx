@@ -45,8 +45,8 @@ export function Footer() {
   const contactInfo = [
     {
       icon: <Mail size={18} className="text-[#3ca2fa]" />,
-      text: "hirebitapplications@gmail.com",
-      href: "mailto:hirebitapplications@gmail.com",
+      text: "support@optiohire.com",
+      href: "mailto:support@optiohire.com",
     },
     {
       icon: <Phone size={18} className="text-[#3ca2fa]" />,
@@ -141,7 +141,7 @@ export function Footer() {
           {/* Contact section */}
           <div className="md:col-span-1 lg:col-span-1">
             <h4 className="text-white text-[13px] sm:text-[15px] font-semibold mb-6 font-figtree">
-              Contact Us
+              Support
             </h4>
             <ul className="space-y-4">
               {contactInfo.map((item, i) => (

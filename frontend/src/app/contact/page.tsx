@@ -42,21 +42,21 @@ const contactMethods = [
     title: 'Talk to sales',
     description: 'Design a tailored AI hiring rollout for your team and accelerate ROI in under 30 days.',
     cta: 'Book a strategy session',
-    href: 'mailto:hirebitapplications@gmail.com',
+    href: 'mailto:support@optiohire.com',
     icon: Briefcase,
   },
   {
     title: 'Product support',
     description: '24/7 technical assistance with proactive monitoring and guided troubleshooting workflows.',
     cta: 'Open a support ticket',
-    href: 'mailto:hirebitapplications@gmail.com',
+    href: 'mailto:support@optiohire.com',
     icon: LifeBuoy,
   },
   {
     title: 'Partner with us',
     description: 'Co-build integrations, reseller programs, and innovation pilots with our platform team.',
     cta: 'Connect with partnerships',
-    href: 'mailto:hirebitapplications@gmail.com',
+    href: 'mailto:support@optiohire.com',
     icon: Building2,
   },
 ]
@@ -358,11 +358,11 @@ export default function ContactPage() {
               <p className="text-sm font-figtree font-medium text-white/80">Prefer a direct line?</p>
               <div className="flex flex-col gap-3">
                 <a
-                  href="mailto:hirebitapplications@gmail.com"
+                  href="mailto:support@optiohire.com"
                   className="inline-flex items-center justify-center gap-2 rounded-full border border-white/25 bg-white/10 px-5 py-2.5 text-sm font-figtree font-medium text-white hover:bg-white/20"
                 >
                   <Mail className="h-4 w-4" />
-                  hirebitapplications@gmail.com
+                  support@optiohire.com
                 </a>
                 <a
                   href="tel:+254701601126"
