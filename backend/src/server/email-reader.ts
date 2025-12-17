@@ -209,7 +209,9 @@ export class EmailReader {
                   await this.moveToFolder(seq, 'Failed')
                 }
               } else {
-                logger.debug(`Skipping email (subject doesn't match any job posting): ${subject}`)
+                logger.debug(`Skipping email (subject doesn't match any job posting): "${subject}"`)
+                // Log for debugging - show what we're trying to match
+                logger.debug(`Subject length: ${subject.length}, Subject (normalized): "${subject.toLowerCase().trim()}"`)
               }
             }
           } catch (error) {
@@ -250,6 +252,9 @@ export class EmailReader {
    */
   private async findJobByExactSubject(emailSubject: string): Promise<any | null> {
     try {
+      // Normalize subject: trim, lowercase, and collapse multiple spaces
+      const normalizedSubject = emailSubject.toLowerCase().trim().replace(/\s+/g, ' ')
+      
       // First try exact match (for backwards compatibility)
       let { rows } = await query(
         `SELECT jp.job_posting_id, jp.company_id, jp.job_title, jp.job_description, 
@@ -257,19 +262,19 @@ export class EmailReader {
                 jp.interview_start_time, jp.meeting_link, jp.created_at, jp.updated_at
          FROM job_postings jp
          WHERE (jp.status IS NULL OR jp.status = 'ACTIVE' OR jp.status = '')
-           AND LOWER(TRIM(jp.job_title)) = LOWER(TRIM($1))
+           AND LOWER(TRIM(jp.job_title)) = $1
          ORDER BY jp.created_at DESC
          LIMIT 1`,
-        [emailSubject]
+        [normalizedSubject]
       )
       
       if (rows[0]) {
+        logger.debug(`Exact match found: "${emailSubject}" -> "${rows[0].job_title}"`)
         return rows[0]
       }
       
       // If exact match fails, try substring match (job title contained in subject)
       // This handles cases where subject is "JOB TITLE - additional text"
-      const normalizedSubject = emailSubject.toLowerCase().trim()
       const { rows: allActiveJobs } = await query(
         `SELECT jp.job_posting_id, jp.company_id, jp.job_title, jp.job_description, 
                 jp.skills_required as required_skills, jp.application_deadline, 
@@ -283,15 +288,36 @@ export class EmailReader {
       let bestMatch: any = null
       let longestMatchLength = 0
       
+      logger.debug(`Checking ${allActiveJobs.length} active jobs against subject: "${emailSubject}"`)
+      
       for (const job of allActiveJobs) {
-        const normalizedJobTitle = job.job_title.toLowerCase().trim()
+        // Normalize job title: trim, lowercase, and collapse multiple spaces
+        const normalizedJobTitle = job.job_title.toLowerCase().trim().replace(/\s+/g, ' ')
+        
+        // Check if job title appears in subject (substring match)
         if (normalizedSubject.includes(normalizedJobTitle)) {
+          logger.debug(`Substring match found: "${normalizedJobTitle}" in "${normalizedSubject}"`)
           // Prefer longer, more specific matches
           if (normalizedJobTitle.length > longestMatchLength) {
             longestMatchLength = normalizedJobTitle.length
             bestMatch = job
           }
+        } else {
+          // Also try reverse: check if subject starts with job title (common pattern)
+          if (normalizedSubject.startsWith(normalizedJobTitle)) {
+            logger.debug(`Prefix match found: "${normalizedSubject}" starts with "${normalizedJobTitle}"`)
+            if (normalizedJobTitle.length > longestMatchLength) {
+              longestMatchLength = normalizedJobTitle.length
+              bestMatch = job
+            }
+          }
         }
+      }
+      
+      if (bestMatch) {
+        logger.debug(`Best match selected: "${bestMatch.job_title}" (length: ${longestMatchLength})`)
+      } else {
+        logger.debug(`No match found for subject: "${emailSubject}". Available jobs: ${allActiveJobs.map(j => `"${j.job_title}"`).join(', ')}`)
       }
       
       return bestMatch
