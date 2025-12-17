@@ -10,13 +10,9 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
         PORT: 3001,
-        DATABASE_URL: 'postgresql://postgres.qijibjotmwbikzwtkcut:HireBit%40254%23.%24@aws-0-us-east-1.pooler.supabase.com:6543/postgres',
-        DB_SSL: 'true',
-        JWT_SECRET: '38970ddabcd7f6a37d4176d9c3f2e06571a48ccf173a13d8a070e5e207ac2e96b8e5d569e95fb29a4bfe9527b689387525eda70219e38411a8e069e27eef6942',
-        GEMINI_API_KEY: 'AIzaSyAVB1-3g8umuSxaLD5STEqpWV5No5LEl_o',
-        SMTP_HOST: 'smtp.gmail.com',
-        SMTP_PORT: '587',
-        SMTP_USER: 'hirebitapplications@gmail.com',
+        // IMPORTANT:
+        // Do NOT hardcode secrets here. Put them in backend/.env on the server.
+        // This repo should never contain API keys, DATABASE_URL passwords, JWT secrets, etc.
       },
       error_file: '/home/optiohire/logs/backend-error.log',
       out_file: '/home/optiohire/logs/backend-out.log',
