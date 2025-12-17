@@ -36,9 +36,12 @@ const baseMetadata: Metadata = {
   keywords: ['AI recruitment', 'automated hiring', 'candidate screening', 'HR technology', 'recruitment software', 'hiring automation', 'talent acquisition', 'AI-powered HR'],
   authors: [{ name: 'OptioHire Team' }],
   icons: {
-    icon: '/assets/logo/white-logo.png',
-    shortcut: '/assets/logo/white-logo.png',
-    apple: '/assets/logo/white-logo.png',
+    icon: [
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+      { url: '/assets/logo/white-logo.png', type: 'image/png' },
+    ],
+    shortcut: [{ url: '/favicon.svg', type: 'image/svg+xml' }],
+    apple: [{ url: '/assets/logo/white-logo.png', type: 'image/png' }],
   },
   openGraph: {
     title: 'AI-Powered Recruitment Platform | OptioHire',
@@ -77,6 +80,7 @@ export default function RootLayout({
     <html lang="en" className={figtree.variable} suppressHydrationWarning>
       <head>
         {/* Favicon */}
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         <link rel="icon" href="/assets/logo/white-logo.png" type="image/png" />
         <link rel="apple-touch-icon" href="/assets/logo/white-logo.png" />
 
