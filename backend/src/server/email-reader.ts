@@ -275,14 +275,42 @@ export class EmailReader {
       
       // If exact match fails, try substring match (job title contained in subject)
       // This handles cases where subject is "JOB TITLE - additional text"
-      const { rows: allActiveJobs } = await query(
+      // Query all jobs (case-insensitive status check) - be more permissive
+      let { rows: allActiveJobs } = await query(
         `SELECT jp.job_posting_id, jp.company_id, jp.job_title, jp.job_description, 
                 jp.skills_required as required_skills, jp.application_deadline, 
-                jp.interview_start_time, jp.meeting_link, jp.created_at, jp.updated_at
+                jp.interview_start_time, jp.meeting_link, jp.created_at, jp.updated_at, jp.status
          FROM job_postings jp
-         WHERE (jp.status IS NULL OR jp.status = 'ACTIVE' OR jp.status = '')
+         WHERE (jp.status IS NULL 
+                OR UPPER(TRIM(jp.status)) = 'ACTIVE' 
+                OR jp.status = '')
          ORDER BY jp.created_at DESC`
       )
+      
+      // If no active jobs found, get ALL jobs for debugging and matching
+      if (allActiveJobs.length === 0) {
+        logger.warn(`No active jobs found with status filter. Checking all jobs in database...`)
+        const { rows: allJobs } = await query(
+          `SELECT jp.job_posting_id, jp.company_id, jp.job_title, jp.status, jp.created_at
+           FROM job_postings jp
+           ORDER BY jp.created_at DESC
+           LIMIT 10`
+        )
+        if (allJobs.length > 0) {
+          logger.warn(`Found ${allJobs.length} jobs in database (ignoring status): ${allJobs.map(j => `"${j.job_title}" (status: ${j.status || 'NULL'})`).join(', ')}`)
+          // Get full job details for matching
+          const { rows: allJobsFull } = await query(
+            `SELECT jp.job_posting_id, jp.company_id, jp.job_title, jp.job_description, 
+                    jp.skills_required as required_skills, jp.application_deadline, 
+                    jp.interview_start_time, jp.meeting_link, jp.created_at, jp.updated_at, jp.status
+             FROM job_postings jp
+             ORDER BY jp.created_at DESC`
+          )
+          allActiveJobs = allJobsFull // Use all jobs for matching
+        } else {
+          logger.error(`No jobs found in database at all!`)
+        }
+      }
       
       // Find the best match (longest job title that appears in subject)
       let bestMatch: any = null
