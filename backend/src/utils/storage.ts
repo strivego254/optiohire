@@ -1,3 +1,5 @@
+import './env.js'
+
 import fs from 'fs/promises'
 import path from 'path'
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'

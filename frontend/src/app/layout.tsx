@@ -77,7 +77,7 @@ export default function RootLayout({
     <html lang="en" className={figtree.variable} suppressHydrationWarning>
       <head>
         {/* Favicon */}
-<link rel="icon" href="/assets/logo/white-logo.png" type="image/png" />
+        <link rel="icon" href="/assets/logo/white-logo.png" type="image/png" />
         <link rel="apple-touch-icon" href="/assets/logo/white-logo.png" />
 
         {/* Preconnect to external domains for faster resource loading */}

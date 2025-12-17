@@ -1,3 +1,5 @@
+import '../utils/env.js'
+
 import { ImapFlow } from 'imapflow'
 import { simpleParser } from 'mailparser'
 import { query } from '../db/index.js'
@@ -10,6 +12,22 @@ import { EmailClassifier } from '../lib/email-classifier.js'
 import { saveFile } from '../utils/storage.js'
 import { EmailService } from '../services/emailService.js'
 import { logger } from '../utils/logger.js'
+
+type EmailReaderStatus = {
+  enabled: boolean
+  running: boolean
+  disabledReason: string | null
+  lastProcessedAt: string | null
+  lastError: string | null
+}
+
+export const emailReaderStatus: EmailReaderStatus = {
+  enabled: process.env.ENABLE_EMAIL_READER !== 'false',
+  running: false,
+  disabledReason: null,
+  lastProcessedAt: null,
+  lastError: null
+}
 
 export class EmailReader {
   private client: ImapFlow | null = null
@@ -38,6 +56,10 @@ export class EmailReader {
       return
     }
 
+    emailReaderStatus.enabled = process.env.ENABLE_EMAIL_READER !== 'false'
+    emailReaderStatus.disabledReason = null
+    emailReaderStatus.lastError = null
+
     // IMAP config from .env
     const imapHost = process.env.IMAP_HOST
     const imapPort = parseInt(process.env.IMAP_PORT || '993', 10)
@@ -47,7 +69,14 @@ export class EmailReader {
     const imapPollMs = parseInt(process.env.IMAP_POLL_MS || '10000', 10) // Default 10 seconds
 
     if (!imapHost || !imapUser || !imapPass) {
-      logger.warn('IMAP credentials not configured, email reader disabled')
+      const missing = [
+        !imapHost ? 'IMAP_HOST' : null,
+        !imapUser ? 'IMAP_USER' : null,
+        !imapPass ? 'IMAP_PASS' : null
+      ].filter(Boolean)
+      const reason = `IMAP credentials not configured (${missing.join(', ')}), email reader disabled`
+      emailReaderStatus.disabledReason = reason
+      logger.warn(reason)
       return
     }
 
@@ -69,12 +98,15 @@ export class EmailReader {
       await this.ensureFolders()
 
       this.isRunning = true
+      emailReaderStatus.running = true
 
       // Start monitoring inbox
       await this.monitorInbox(imapPollMs)
     } catch (error) {
       logger.error('Failed to start email reader:', error)
       this.isRunning = false
+      emailReaderStatus.running = false
+      emailReaderStatus.lastError = (error as any)?.message || String(error)
     }
   }
 
@@ -102,6 +134,7 @@ export class EmailReader {
 
   async stop() {
     this.isRunning = false
+    emailReaderStatus.running = false
     if (this.client) {
       await this.client.logout()
       this.client = null
@@ -115,8 +148,10 @@ export class EmailReader {
     while (this.isRunning) {
       try {
         await this.processNewEmails()
+        emailReaderStatus.lastProcessedAt = new Date().toISOString()
       } catch (error) {
         logger.error('Error processing emails:', error)
+        emailReaderStatus.lastError = (error as any)?.message || String(error)
       }
 
       await new Promise(resolve => setTimeout(resolve, pollInterval))
@@ -315,13 +350,18 @@ export class EmailReader {
       }
 
       // Send HR notification
-      await this.emailService.sendHRNotification({
-        hrEmail: company.hr_email,
-        candidateName: senderName,
-        candidateEmail: senderEmail,
-        jobTitle: job.job_title,
-        companyName: company.company_name
-      })
+      try {
+        await this.emailService.sendHRNotification({
+          hrEmail: company.hr_email,
+          candidateName: senderName,
+          candidateEmail: senderEmail,
+          jobTitle: job.job_title,
+          companyName: company.company_name
+        })
+      } catch (emailError) {
+        // SMTP/network issues should NOT block applicant ingestion + analysis
+        logger.warn(`Failed to send HR notification for application ${application.application_id} (continuing):`, emailError)
+      }
 
       logger.info(`Successfully processed application from ${senderEmail} for job ${job.job_posting_id} - CV extracted and analyzed`)
       return true // CV was successfully extracted and processed
@@ -519,9 +559,28 @@ export class EmailReader {
     job: any,
     company: any
   ) {
+    // Parse CV
+    let parsed: { textContent: string; linkedin: string | null; github: string | null; emails: string[]; other_links: string[] }
     try {
-      // Parse CV
-      const parsed = await this.cvParser.parseCVBuffer(cvBuffer, mimeType)
+      parsed = await this.cvParser.parseCVBuffer(cvBuffer, mimeType)
+    } catch (error) {
+      const errorMsg = (error as any)?.message || String(error)
+      logger.error(`Failed to parse CV for application ${applicationId}:`, error)
+
+      // Mark as FLAG so it shows up as "analyzed" even if parsing fails
+      try {
+        await this.applicationRepo.updateScoring({
+          application_id: applicationId,
+          ai_score: 0,
+          ai_status: 'FLAG',
+          reasoning: `Automatic analysis failed: could not parse resume (${errorMsg}). Please review the attachment manually.`,
+          parsed_resume_json: null
+        })
+      } catch (updateError) {
+        logger.error(`Failed to mark application ${applicationId} as FLAG after CV parse failure:`, updateError)
+      }
+      throw error
+    }
 
       // Build parsed resume JSON with links (aligned with CV parser output)
       const parsedResumeJson = {
@@ -580,32 +639,34 @@ export class EmailReader {
         const companyData = await this.companyRepo.findById(company.company_id)
         
         // Check status (use original status, not mapped)
-        if (scoringResult.status === 'SHORTLIST') {
-          await this.emailService.sendShortlistEmail({
-            candidateEmail: application.email,
-            candidateName: application.candidate_name || 'Candidate',
-            jobTitle: job.job_title,
-            companyName: companyData?.company_name || company.company_name,
-            companyEmail: companyData?.company_email || company.company_email,
-            companyDomain: companyData?.company_domain || company.company_domain,
-            interviewLink: job.meeting_link
-          })
-        } else if (scoringResult.status === 'REJECTED') {
-          await this.emailService.sendRejectionEmail({
-            candidateEmail: application.email,
-            candidateName: application.candidate_name || 'Candidate',
-            jobTitle: job.job_title,
-            companyName: companyData?.company_name || company.company_name,
-            companyEmail: companyData?.company_email || company.company_email,
-            companyDomain: companyData?.company_domain || company.company_domain
-          })
+        try {
+          if (scoringResult.status === 'SHORTLIST') {
+            await this.emailService.sendShortlistEmail({
+              candidateEmail: application.email,
+              candidateName: application.candidate_name || 'Candidate',
+              jobTitle: job.job_title,
+              companyName: companyData?.company_name || company.company_name,
+              companyEmail: companyData?.company_email || company.company_email,
+              companyDomain: companyData?.company_domain || company.company_domain,
+              interviewLink: job.meeting_link
+            })
+          } else if (scoringResult.status === 'REJECTED') {
+            await this.emailService.sendRejectionEmail({
+              candidateEmail: application.email,
+              candidateName: application.candidate_name || 'Candidate',
+              jobTitle: job.job_title,
+              companyName: companyData?.company_name || company.company_name,
+              companyEmail: companyData?.company_email || company.company_email,
+              companyDomain: companyData?.company_domain || company.company_domain
+            })
+          }
+        } catch (emailError) {
+          // SMTP/network issues should NOT block analysis
+          logger.warn(`Failed to send candidate decision email for application ${applicationId} (continuing):`, emailError)
         }
       }
 
       logger.info(`Processed CV for application ${applicationId}, score: ${scoringResult.score}, status: ${scoringResult.status}`)
-    } catch (error) {
-      logger.error(`Error processing CV for application ${applicationId}:`, error)
-    }
   }
 }
 
@@ -614,6 +675,12 @@ if (process.env.ENABLE_EMAIL_READER !== 'false') {
   const emailReader = new EmailReader()
   emailReader.start().catch(err => {
     logger.error('Failed to start email reader:', err)
+    emailReaderStatus.lastError = (err as any)?.message || String(err)
   })
+} else {
+  const reason = 'Email reader disabled via ENABLE_EMAIL_READER=false'
+  emailReaderStatus.enabled = false
+  emailReaderStatus.disabledReason = reason
+  logger.info(reason)
 }
 

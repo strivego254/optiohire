@@ -1,15 +1,5 @@
-import dotenv from 'dotenv'
-import path from 'path'
-import { fileURLToPath } from 'url'
-
-// Get the directory of the current module (will be dist/ when compiled)
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
-
-// Load .env file from backend directory
-// When compiled, __dirname is dist/, so go up one level to backend/
-const envPath = path.resolve(__dirname, '../.env')
-dotenv.config({ path: envPath })
+// IMPORTANT (ESM): load env before importing modules that read env at import-time.
+import './utils/env.js'
 
 import express from 'express'
 import cors from 'cors'
@@ -35,7 +25,7 @@ import { logger } from './utils/logger.js'
 import { startReportScheduler } from './cron/reportScheduler.js'
 import { startDeadlineStatusScheduler } from './cron/scheduler.js'
 // Email reader enabled - monitors inbox for job applications
-import './server/email-reader.js'
+import { emailReaderStatus } from './server/email-reader.js'
 
 const app = express()
 const port = Number(process.env.PORT || 3001)
@@ -48,6 +38,15 @@ app.use(morgan('dev'))
 // Health
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
+})
+
+// Email reader health check (IMAP ingestion + applicant analysis)
+app.get('/health/email-reader', (_req, res) => {
+  res.json({
+    status: 'ok',
+    emailReader: emailReaderStatus,
+    timestamp: new Date().toISOString()
+  })
 })
 
 // Database health check
