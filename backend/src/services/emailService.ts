@@ -241,7 +241,7 @@ Company Email: ${hrEmail}`
       from: fromEmail,
       subject,
       text,
-      html: '' // Not used, but required by interface
+      html: html // Send the HTML email
     })
   }
 
@@ -316,7 +316,7 @@ Company Email: ${hrEmail}`
       from: fromEmail,
       subject,
       text,
-      html: '' // Not used, but required by interface
+      html: html // Send the HTML email
     })
   }
 
