@@ -64,10 +64,8 @@ export async function scoreApplication(req: Request, res: Response) {
       skills: job.skills_required || []
     })
 
-    // Map status: FLAGGED -> FLAG, REJECTED -> REJECT (to match database enum)
-    const dbStatus = status === 'FLAGGED' ? 'FLAG' : 
-                     status === 'REJECTED' ? 'REJECT' : 
-                     status
+    // Status is already in correct format: 'SHORTLIST' | 'FLAG' | 'REJECT'
+    const dbStatus = status
 
     await query(
       `update applications
