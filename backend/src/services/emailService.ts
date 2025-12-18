@@ -23,18 +23,26 @@ export class EmailService {
       logger.warn('Generate one at: https://myaccount.google.com/apppasswords')
     }
 
+    // Try port 465 (SSL) first, fallback to 587 (TLS)
+    const mailPort = parseInt(process.env.MAIL_PORT || process.env.SMTP_PORT || '465', 10)
+    const useSecure = mailPort === 465
+    
     this.transporter = nodemailer.createTransport({
       host: mailHost,
-      port: 587,
-      secure: false, // Use TLS
+      port: mailPort,
+      secure: useSecure, // true for 465 (SSL), false for 587 (TLS)
       auth: mailUser && mailPass ? {
         user: mailUser,
         pass: mailPass
       } : undefined,
-      // Add connection timeout and retry options
-      connectionTimeout: 10000,
-      greetingTimeout: 10000,
-      socketTimeout: 10000
+      // Increase timeouts and add retry options
+      connectionTimeout: 30000, // 30 seconds
+      greetingTimeout: 30000,
+      socketTimeout: 30000,
+      // Add TLS options for better compatibility
+      tls: {
+        rejectUnauthorized: false // Allow self-signed certificates if needed
+      }
     })
 
     // Setup email log file
