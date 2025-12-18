@@ -16,13 +16,17 @@ echo -e "${BLUE}Fix Database Mismatch on Server${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo ""
 
-# Detect app directory
-if [ -d "/opt/optiohire" ]; then
+# Detect app directory - check current directory first, then common locations
+if [ -d "backend" ] && [ -d "frontend" ]; then
+    APP_DIR="$(pwd)"
+elif [ -d "/opt/optiohire" ]; then
     APP_DIR="/opt/optiohire"
 elif [ -d "$HOME/optiohire" ]; then
     APP_DIR="$HOME/optiohire"
 else
     echo -e "${RED}Error: Could not find optiohire directory${NC}"
+    echo "Current directory: $(pwd)"
+    echo "Please run this script from the optiohire directory"
     exit 1
 fi
 
