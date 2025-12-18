@@ -88,11 +88,13 @@ export class EmailReader {
         auth: {
           user: imapUser,
           pass: imapPass
-        }
+        },
+        // Add connection timeout and retry options
+        logger: false // Disable imapflow's internal logging to avoid spam
       })
 
       await this.client.connect()
-      logger.info(`IMAP email reader connected to ${imapHost}:${imapPort}`)
+      logger.info(`✅ IMAP email reader connected to ${imapHost}:${imapPort}`)
 
       // Ensure folders exist
       await this.ensureFolders()
@@ -100,13 +102,41 @@ export class EmailReader {
       this.isRunning = true
       emailReaderStatus.running = true
 
-      // Start monitoring inbox
-      await this.monitorInbox(imapPollMs)
+      // Start monitoring inbox (this runs indefinitely)
+      // Don't await - let it run in background, but catch errors
+      this.monitorInbox(imapPollMs).catch(async (error) => {
+        logger.error('❌ Email reader monitoring stopped due to error:', error)
+        emailReaderStatus.lastError = (error as any)?.message || String(error)
+        emailReaderStatus.running = false
+        this.isRunning = false
+        
+        // Attempt to reconnect after 30 seconds
+        logger.info('⏳ Attempting to reconnect email reader in 30 seconds...')
+        await new Promise(resolve => setTimeout(resolve, 30000))
+        
+        if (emailReaderStatus.enabled && process.env.ENABLE_EMAIL_READER !== 'false') {
+          logger.info('🔄 Reconnecting email reader...')
+          this.start().catch(err => {
+            logger.error('❌ Failed to reconnect email reader:', err)
+          })
+        }
+      })
     } catch (error) {
-      logger.error('Failed to start email reader:', error)
+      logger.error('❌ Failed to start email reader:', error)
       this.isRunning = false
       emailReaderStatus.running = false
       emailReaderStatus.lastError = (error as any)?.message || String(error)
+      
+      // Attempt to reconnect after 30 seconds
+      logger.info('⏳ Attempting to reconnect email reader in 30 seconds...')
+      setTimeout(() => {
+        if (emailReaderStatus.enabled && process.env.ENABLE_EMAIL_READER !== 'false') {
+          logger.info('🔄 Reconnecting email reader...')
+          this.start().catch(err => {
+            logger.error('❌ Failed to reconnect email reader:', err)
+          })
+        }
+      }, 30000)
     }
   }
 
@@ -145,25 +175,44 @@ export class EmailReader {
   private async monitorInbox(pollInterval: number) {
     if (!this.client) return
 
-      while (this.isRunning) {
-        try {
-          // Log periodic check (every 10 checks to avoid spam)
-          if (Math.random() < 0.1) {
-            logger.info(`📧 Email reader checking inbox for new applications...`)
-          }
-          await this.processNewEmails()
-          emailReaderStatus.lastProcessedAt = new Date().toISOString()
-        } catch (error) {
-          logger.error('❌ Error processing emails:', error)
-          emailReaderStatus.lastError = (error as any)?.message || String(error)
+    logger.info(`📧 Email reader started monitoring inbox (checking every ${pollInterval}ms)`)
+    
+    while (this.isRunning) {
+      try {
+        // Log periodic check (every 60 checks to avoid spam - approximately once per minute if polling every second)
+        const checkCount = Math.floor(Date.now() / 60000) % 60
+        if (checkCount === 0) {
+          logger.info(`📧 Email reader monitoring inbox... (last processed: ${emailReaderStatus.lastProcessedAt || 'never'})`)
         }
-
-        await new Promise(resolve => setTimeout(resolve, pollInterval))
+        
+        await this.processNewEmails()
+        emailReaderStatus.lastProcessedAt = new Date().toISOString()
+        emailReaderStatus.lastError = null // Clear error on success
+      } catch (error) {
+        const errorMsg = (error as any)?.message || String(error)
+        logger.error('❌ Error processing emails:', error)
+        emailReaderStatus.lastError = errorMsg
+        
+        // Don't stop monitoring on error - continue trying
+        // If IMAP connection is lost, it will be caught in processNewEmails
       }
+
+      // Wait before next check - use smaller delay to ensure responsiveness
+      await new Promise(resolve => setTimeout(resolve, pollInterval))
+    }
+    
+    logger.warn('📧 Email reader stopped monitoring inbox')
   }
 
   private async processNewEmails() {
-    if (!this.client) return
+    if (!this.client) {
+      logger.warn('⚠️ IMAP client not connected, attempting to reconnect...')
+      // Try to reconnect
+      if (emailReaderStatus.enabled && process.env.ENABLE_EMAIL_READER !== 'false') {
+        await this.start()
+      }
+      return
+    }
 
     try {
       const lock = await this.client.getMailboxLock('INBOX')
@@ -252,8 +301,18 @@ export class EmailReader {
       } finally {
         lock.release()
       }
-    } catch (error) {
-      logger.error('Error accessing inbox:', error)
+    } catch (error: any) {
+      const errorMsg = error?.message || String(error)
+      logger.error('❌ Error accessing inbox:', errorMsg)
+      
+      // Check if it's a connection error
+      if (errorMsg.includes('Connection') || errorMsg.includes('ECONNRESET') || errorMsg.includes('ETIMEDOUT') || errorMsg.includes('ENOTFOUND')) {
+        logger.warn('⚠️ IMAP connection lost, will attempt to reconnect on next check')
+        emailReaderStatus.lastError = `Connection error: ${errorMsg}`
+        // Don't set running to false - let the reconnection logic handle it
+      } else {
+        emailReaderStatus.lastError = errorMsg
+      }
     }
   }
 
@@ -366,7 +425,7 @@ export class EmailReader {
         return bestMatch
       } else {
         logger.warn(`❌ NO MATCH: Subject "${emailSubject}" doesn't match any job. Available jobs: ${allActiveJobs.map(j => `"${j.job_title}"`).join(', ')}`)
-        return null
+      return null
       }
     } catch (error) {
       logger.error('❌ Error finding job by subject:', error)
@@ -741,29 +800,36 @@ export class EmailReader {
         
         // Check status (use original status, not mapped)
         try {
-        if (scoringResult.status === 'SHORTLIST') {
-          await this.emailService.sendShortlistEmail({
-            candidateEmail: application.email,
-            candidateName: application.candidate_name || 'Candidate',
-            jobTitle: job.job_title,
-            companyName: companyData?.company_name || company.company_name,
-            companyEmail: companyData?.company_email || company.company_email,
-            companyDomain: companyData?.company_domain || company.company_domain,
-            interviewLink: job.meeting_link
-          })
-        } else if (scoringResult.status === 'REJECTED') {
-          await this.emailService.sendRejectionEmail({
-            candidateEmail: application.email,
-            candidateName: application.candidate_name || 'Candidate',
-            jobTitle: job.job_title,
-            companyName: companyData?.company_name || company.company_name,
-            companyEmail: companyData?.company_email || company.company_email,
-            companyDomain: companyData?.company_domain || company.company_domain
-          })
+          if (scoringResult.status === 'SHORTLIST') {
+            logger.info(`📧 Sending shortlist email to ${application.email} for application ${applicationId}`)
+            await this.emailService.sendShortlistEmail({
+              candidateEmail: application.email,
+              candidateName: application.candidate_name || 'Candidate',
+              jobTitle: job.job_title,
+              companyName: companyData?.company_name || company.company_name,
+              companyEmail: companyData?.company_email || company.company_email,
+              companyDomain: companyData?.company_domain || company.company_domain,
+              interviewLink: job.meeting_link
+            })
+            logger.info(`✅ Shortlist email sent successfully to ${application.email}`)
+          } else if (scoringResult.status === 'REJECTED') {
+            logger.info(`📧 Sending rejection email to ${application.email} for application ${applicationId}`)
+            await this.emailService.sendRejectionEmail({
+              candidateEmail: application.email,
+              candidateName: application.candidate_name || 'Candidate',
+              jobTitle: job.job_title,
+              companyName: companyData?.company_name || company.company_name,
+              companyEmail: companyData?.company_email || company.company_email,
+              companyDomain: companyData?.company_domain || company.company_domain
+            })
+            logger.info(`✅ Rejection email sent successfully to ${application.email}`)
           }
-        } catch (emailError) {
+        } catch (emailError: any) {
           // SMTP/network issues should NOT block analysis
-          logger.warn(`Failed to send candidate decision email for application ${applicationId} (continuing):`, emailError)
+          const errorMsg = emailError?.message || String(emailError)
+          logger.error(`❌ Failed to send candidate decision email for application ${applicationId}:`, errorMsg)
+          logger.error(`   Email error details:`, emailError)
+          // Continue - don't fail the analysis if email fails
         }
       }
 

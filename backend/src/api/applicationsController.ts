@@ -3,7 +3,8 @@ import { query } from '../db/index.js'
 import { startImapIngestion } from '../utils/imap.js'
 import { parseResumeText } from '../services/ai/resumeParser.js'
 import { scoreCandidate } from '../services/ai/screening.js'
-import { sendDecisionEmail } from '../email/templates.js'
+import { EmailService } from '../services/emailService.js'
+import { logger } from '../utils/logger.js'
 
 export async function parseEmailApplications(req: Request, res: Response) {
   try {
@@ -63,22 +64,68 @@ export async function scoreApplication(req: Request, res: Response) {
       skills: job.skills_required || []
     })
 
+    // Map status: FLAGGED -> FLAG, REJECTED -> REJECT (to match database enum)
+    const dbStatus = status === 'FLAGGED' ? 'FLAG' : 
+                     status === 'REJECTED' ? 'REJECT' : 
+                     status
+
     await query(
       `update applications
        set ai_score = $1, ai_status = $2, reasoning = $3, parsed_resume_json = coalesce(parsed_resume_json, $4::jsonb)
        where application_id = $5`,
-      [score, status, reasoning, JSON.stringify(parsed), application_id]
+      [score, dbStatus, reasoning, JSON.stringify(parsed), application_id]
     )
 
-    await sendDecisionEmail({
-      to: app.email,
-      candidateName: app.candidate_name || 'Candidate',
-      status,
-      interviewLink: null,
-      jobPostingId: job_posting_id
-    })
+    // Send email notification to candidate
+    try {
+      const emailService = new EmailService()
+      
+      // Get company information for email
+      const { rows: companyRows } = await query(
+        `SELECT c.company_id, c.company_name, c.company_email, c.company_domain, c.hr_email,
+                jp.meeting_link
+         FROM applications a
+         JOIN job_postings jp ON a.job_posting_id = jp.job_posting_id
+         JOIN companies c ON jp.company_id = c.company_id
+         WHERE a.application_id = $1`,
+        [application_id]
+      )
+      
+      if (companyRows.length > 0) {
+        const company = companyRows[0]
+        
+        if (dbStatus === 'SHORTLIST') {
+          logger.info(`📧 Sending shortlist email to ${app.email} for application ${application_id}`)
+          await emailService.sendShortlistEmail({
+            candidateEmail: app.email,
+            candidateName: app.candidate_name || 'Candidate',
+            jobTitle: job.job_title,
+            companyName: company.company_name,
+            companyEmail: company.company_email,
+            companyDomain: company.company_domain,
+            interviewLink: company.meeting_link
+          })
+          logger.info(`✅ Shortlist email sent successfully to ${app.email}`)
+        } else if (dbStatus === 'REJECT') {
+          logger.info(`📧 Sending rejection email to ${app.email} for application ${application_id}`)
+          await emailService.sendRejectionEmail({
+            candidateEmail: app.email,
+            candidateName: app.candidate_name || 'Candidate',
+            jobTitle: job.job_title,
+            companyName: company.company_name,
+            companyEmail: company.company_email,
+            companyDomain: company.company_domain
+          })
+          logger.info(`✅ Rejection email sent successfully to ${app.email}`)
+        }
+      }
+    } catch (emailError: any) {
+      const errorMsg = emailError?.message || String(emailError)
+      logger.error(`❌ Failed to send candidate decision email for application ${application_id}:`, errorMsg)
+      // Continue - don't fail the request if email fails
+    }
 
-    return res.status(200).json({ score, status, reasoning })
+    return res.status(200).json({ score, status: dbStatus, reasoning })
   } catch (err) {
     return res.status(500).json({ error: 'Failed to score application' })
   }
