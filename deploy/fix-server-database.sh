@@ -19,14 +19,14 @@ echo ""
 # Detect app directory - check current directory first, then common locations
 if [ -d "backend" ] && [ -d "frontend" ]; then
     APP_DIR="$(pwd)"
-elif [ -d "/opt/optiohire" ]; then
-    APP_DIR="/opt/optiohire"
 elif [ -d "$HOME/optiohire" ]; then
     APP_DIR="$HOME/optiohire"
+elif [ -d "/opt/optiohire" ]; then
+    APP_DIR="/opt/optiohire"
 else
     echo -e "${RED}Error: Could not find optiohire directory${NC}"
     echo "Current directory: $(pwd)"
-    echo "Please run this script from the optiohire directory"
+    echo "Please run this script from the optiohire directory or ensure it exists in ~/optiohire or /opt/optiohire"
     exit 1
 fi
 
