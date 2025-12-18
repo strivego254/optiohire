@@ -178,7 +178,7 @@ export class EmailReader {
         }
 
         if (messages.length > 0) {
-          logger.info(`Found ${messages.length} unread email(s) in inbox`)
+          logger.info(`✅ Found ${messages.length} unread email(s) in inbox - processing...`)
         }
 
         for (const seq of messages) {
@@ -221,6 +221,22 @@ export class EmailReader {
                 }
               } else {
                 logger.warn(`❌ NO MATCH: Email subject doesn't match any job posting: "${subject}"`)
+                // Log available jobs for debugging
+                try {
+                  const { rows: availableJobs } = await query(
+                    `SELECT job_title, status FROM job_postings 
+                     WHERE (status IS NULL OR UPPER(TRIM(status)) = 'ACTIVE' OR status = '')
+                     ORDER BY created_at DESC
+                     LIMIT 5`
+                  )
+                  if (availableJobs.length > 0) {
+                    logger.warn(`Available jobs for matching: ${availableJobs.map(j => `"${j.job_title}"`).join(', ')}`)
+                  } else {
+                    logger.warn(`No active jobs found in database`)
+                  }
+                } catch (dbErr) {
+                  logger.error(`Error querying jobs for debug:`, dbErr)
+                }
               }
             }
           } catch (error) {
