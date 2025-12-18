@@ -66,7 +66,7 @@ export class EmailReader {
     const imapUser = process.env.IMAP_USER
     const imapPass = process.env.IMAP_PASS
     const imapSecure = process.env.IMAP_SECURE !== 'false' // Default to true
-    const imapPollMs = parseInt(process.env.IMAP_POLL_MS || '10000', 10) // Default 10 seconds
+    const imapPollMs = parseInt(process.env.IMAP_POLL_MS || '1000', 10) // Default 1 second for real-time processing
 
     if (!imapHost || !imapUser || !imapPass) {
       const missing = [
@@ -290,25 +290,46 @@ export class EmailReader {
       // If no active jobs found, get ALL jobs for debugging and matching
       if (allActiveJobs.length === 0) {
         logger.warn(`No active jobs found with status filter. Checking all jobs in database...`)
-        const { rows: allJobs } = await query(
-          `SELECT jp.job_posting_id, jp.company_id, jp.job_title, jp.status, jp.created_at
-           FROM job_postings jp
-           ORDER BY jp.created_at DESC
-           LIMIT 10`
-        )
-        if (allJobs.length > 0) {
-          logger.warn(`Found ${allJobs.length} jobs in database (ignoring status): ${allJobs.map(j => `"${j.job_title}" (status: ${j.status || 'NULL'})`).join(', ')}`)
-          // Get full job details for matching
-          const { rows: allJobsFull } = await query(
-            `SELECT jp.job_posting_id, jp.company_id, jp.job_title, jp.job_description, 
-                    jp.skills_required as required_skills, jp.application_deadline, 
-                    jp.interview_start_time, jp.meeting_link, jp.created_at, jp.updated_at, jp.status
+        try {
+          const { rows: allJobs } = await query(
+            `SELECT jp.job_posting_id, jp.company_id, jp.job_title, jp.status, jp.created_at
              FROM job_postings jp
-             ORDER BY jp.created_at DESC`
+             ORDER BY jp.created_at DESC
+             LIMIT 10`
           )
-          allActiveJobs = allJobsFull // Use all jobs for matching
-        } else {
-          logger.error(`No jobs found in database at all!`)
+          if (allJobs.length > 0) {
+            logger.warn(`Found ${allJobs.length} jobs in database (ignoring status): ${allJobs.map(j => `"${j.job_title}" (status: ${j.status || 'NULL'})`).join(', ')}`)
+            // Get full job details for matching
+            const { rows: allJobsFull } = await query(
+              `SELECT jp.job_posting_id, jp.company_id, jp.job_title, jp.job_description, 
+                      jp.skills_required as required_skills, jp.application_deadline, 
+                      jp.interview_start_time, jp.meeting_link, jp.created_at, jp.updated_at, jp.status
+               FROM job_postings jp
+               ORDER BY jp.created_at DESC`
+            )
+            allActiveJobs = allJobsFull // Use all jobs for matching
+          } else {
+            logger.error(`No jobs found in database at all! Database might be empty or connection issue.`)
+            // Try to verify database connection by checking if table exists
+            try {
+              const { rows: tableCheck } = await query(
+                `SELECT EXISTS (
+                  SELECT FROM information_schema.tables 
+                  WHERE table_schema = 'public' 
+                  AND table_name = 'job_postings'
+                ) as exists`
+              )
+              if (tableCheck[0]?.exists) {
+                logger.warn(`Table 'job_postings' exists but is empty. No jobs have been created yet.`)
+              } else {
+                logger.error(`Table 'job_postings' does not exist! Database schema issue.`)
+              }
+            } catch (tableError) {
+              logger.error(`Error checking table existence:`, tableError)
+            }
+          }
+        } catch (dbError: any) {
+          logger.error(`Database query error when checking for jobs:`, dbError?.message || String(dbError))
         }
       }
       
@@ -433,13 +454,13 @@ export class EmailReader {
 
       // Send HR notification
       try {
-        await this.emailService.sendHRNotification({
-          hrEmail: company.hr_email,
-          candidateName: senderName,
-          candidateEmail: senderEmail,
-          jobTitle: job.job_title,
-          companyName: company.company_name
-        })
+      await this.emailService.sendHRNotification({
+        hrEmail: company.hr_email,
+        candidateName: senderName,
+        candidateEmail: senderEmail,
+        jobTitle: job.job_title,
+        companyName: company.company_name
+      })
       } catch (emailError) {
         // SMTP/network issues should NOT block applicant ingestion + analysis
         logger.warn(`Failed to send HR notification for application ${application.application_id} (continuing):`, emailError)
@@ -641,7 +662,7 @@ export class EmailReader {
     job: any,
     company: any
   ) {
-    // Parse CV
+      // Parse CV
     let parsed: { textContent: string; linkedin: string | null; github: string | null; emails: string[]; other_links: string[] }
     try {
       parsed = await this.cvParser.parseCVBuffer(cvBuffer, mimeType)
@@ -722,25 +743,25 @@ export class EmailReader {
         
         // Check status (use original status, not mapped)
         try {
-          if (scoringResult.status === 'SHORTLIST') {
-            await this.emailService.sendShortlistEmail({
-              candidateEmail: application.email,
-              candidateName: application.candidate_name || 'Candidate',
-              jobTitle: job.job_title,
-              companyName: companyData?.company_name || company.company_name,
-              companyEmail: companyData?.company_email || company.company_email,
-              companyDomain: companyData?.company_domain || company.company_domain,
-              interviewLink: job.meeting_link
-            })
-          } else if (scoringResult.status === 'REJECTED') {
-            await this.emailService.sendRejectionEmail({
-              candidateEmail: application.email,
-              candidateName: application.candidate_name || 'Candidate',
-              jobTitle: job.job_title,
-              companyName: companyData?.company_name || company.company_name,
-              companyEmail: companyData?.company_email || company.company_email,
-              companyDomain: companyData?.company_domain || company.company_domain
-            })
+        if (scoringResult.status === 'SHORTLIST') {
+          await this.emailService.sendShortlistEmail({
+            candidateEmail: application.email,
+            candidateName: application.candidate_name || 'Candidate',
+            jobTitle: job.job_title,
+            companyName: companyData?.company_name || company.company_name,
+            companyEmail: companyData?.company_email || company.company_email,
+            companyDomain: companyData?.company_domain || company.company_domain,
+            interviewLink: job.meeting_link
+          })
+        } else if (scoringResult.status === 'REJECTED') {
+          await this.emailService.sendRejectionEmail({
+            candidateEmail: application.email,
+            candidateName: application.candidate_name || 'Candidate',
+            jobTitle: job.job_title,
+            companyName: companyData?.company_name || company.company_name,
+            companyEmail: companyData?.company_email || company.company_email,
+            companyDomain: companyData?.company_domain || company.company_domain
+          })
           }
         } catch (emailError) {
           // SMTP/network issues should NOT block analysis
