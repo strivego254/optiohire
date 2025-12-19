@@ -55,7 +55,9 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
         PORT: 3001,
-        // IMPORTANT: All secrets should be in backend/.env file
+        // CRITICAL: Explicitly enable email reader for automatic email processing
+        ENABLE_EMAIL_READER: 'true',
+        // IMPORTANT: All other secrets should be in backend/.env file
         // Do NOT hardcode API keys, passwords, or secrets here
       },
       error_file: path.join(LOGS_DIR, 'backend-error.log'),
