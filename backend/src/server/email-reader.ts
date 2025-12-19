@@ -291,7 +291,7 @@ export class EmailReader {
     try {
       const lock = await this.client!.getMailboxLock('INBOX')
       try {
-        // Search for unseen emails
+        // Search for unseen emails (unread)
         const messages = await this.client!.search({
           seen: false
         })
@@ -302,6 +302,13 @@ export class EmailReader {
 
         if (messages.length > 0) {
           logger.info(`✅ Found ${messages.length} unread email(s) in inbox - processing...`)
+        } else {
+          // Log periodically that we're checking (every 10 checks = ~10 seconds)
+          const checkCount = (this as any).checkCount || 0
+          ;(this as any).checkCount = checkCount + 1
+          if (checkCount % 10 === 0) {
+            logger.debug(`📧 Checking inbox... (no unread emails found)`)
+          }
         }
 
         for (const seq of messages) {
@@ -343,22 +350,37 @@ export class EmailReader {
                   await this.moveToFolder(seq, 'Failed')
                 }
               } else {
-                logger.warn(`❌ NO MATCH: Email subject doesn't match any job posting: "${subject}"`)
+                logger.warn(`❌ NO MATCH: Email subject "${subject}" doesn't match any job posting`)
+                logger.warn(`   From: ${sender}`)
                 // Log available jobs for debugging
                 try {
                   const { rows: availableJobs } = await query(
-                    `SELECT job_title, status FROM job_postings 
+                    `SELECT job_title, status, created_at FROM job_postings 
                      WHERE (status IS NULL OR UPPER(TRIM(status)) = 'ACTIVE' OR status = '')
                      ORDER BY created_at DESC
-                     LIMIT 5`
+                     LIMIT 10`
                   )
                   if (availableJobs.length > 0) {
-                    logger.warn(`Available jobs for matching: ${availableJobs.map(j => `"${j.job_title}"`).join(', ')}`)
+                    logger.warn(`   Available jobs for matching (${availableJobs.length}):`)
+                    availableJobs.forEach((j, idx) => {
+                      logger.warn(`     ${idx + 1}. "${j.job_title}" (Status: ${j.status || 'NULL'}, Created: ${j.created_at})`)
+                    })
+                    logger.warn(`   💡 TIP: Email subject should contain the job title. Examples:`)
+                    logger.warn(`      - Exact: "${availableJobs[0].job_title}"`)
+                    logger.warn(`      - Prefix: "${availableJobs[0].job_title} - Application"`)
+                    logger.warn(`      - Contains: "Application for ${availableJobs[0].job_title}"`)
                   } else {
-                    logger.warn(`No active jobs found in database`)
+                    logger.warn(`   ⚠️ No active jobs found in database`)
                   }
                 } catch (dbErr) {
-                  logger.error(`Error querying jobs for debug:`, dbErr)
+                  logger.error(`   Error querying jobs for debug:`, dbErr)
+                }
+                // Move unmatched email to Failed folder but keep it unread for manual review
+                try {
+                  await this.moveToFolder(seq, 'Failed')
+                  logger.warn(`   Email moved to Failed folder (still unread for manual review)`)
+                } catch (moveErr) {
+                  logger.error(`   Failed to move email to Failed folder:`, moveErr)
                 }
               }
             }
@@ -465,15 +487,16 @@ export class EmailReader {
       logger.info(`📋 Checking ${allActiveJobs.length} job(s) against email subject. Jobs: ${allActiveJobs.map(j => `"${j.job_title}"`).join(', ')}`)
       
       // Find the best match
-      // Priority: 1) Exact match, 2) Subject starts with job title, 3) Job title in subject
+      // Priority: 1) Exact match, 2) Subject starts with job title, 3) Job title in subject, 4) Fuzzy match
       let bestMatch: any = null
       let longestMatchLength = 0
+      let bestMatchScore = 0
       
       for (const job of allActiveJobs) {
         // Normalize job title: trim, lowercase, and collapse multiple spaces
         const normalizedJobTitle = job.job_title.toLowerCase().trim().replace(/\s+/g, ' ')
         
-        // 1. Try exact match first
+        // 1. Try exact match first (highest priority)
         if (normalizedSubject === normalizedJobTitle) {
           logger.info(`✅ EXACT MATCH: "${emailSubject}" exactly matches "${job.job_title}"`)
           return job
@@ -486,14 +509,25 @@ export class EmailReader {
           if (normalizedJobTitle.length > longestMatchLength) {
             longestMatchLength = normalizedJobTitle.length
             bestMatch = job
+            bestMatchScore = 3 // High score for prefix match
           }
         }
         // 3. Try substring match: job title contained in subject (fallback)
         else if (normalizedSubject.includes(normalizedJobTitle)) {
           logger.info(`✅ SUBSTRING MATCH: "${normalizedJobTitle}" found in "${emailSubject}"`)
-          if (normalizedJobTitle.length > longestMatchLength) {
+          if (normalizedJobTitle.length > longestMatchLength || bestMatchScore < 2) {
             longestMatchLength = normalizedJobTitle.length
             bestMatch = job
+            bestMatchScore = 2 // Medium score for substring match
+          }
+        }
+        // 4. Try reverse match: subject contained in job title (for partial matches)
+        else if (normalizedJobTitle.includes(normalizedSubject) && normalizedSubject.length >= 5) {
+          logger.info(`✅ REVERSE MATCH: Subject "${emailSubject}" found in job title "${job.job_title}"`)
+          if (normalizedSubject.length > longestMatchLength || bestMatchScore < 1) {
+            longestMatchLength = normalizedSubject.length
+            bestMatch = job
+            bestMatchScore = 1 // Lower score for reverse match
           }
         }
       }
