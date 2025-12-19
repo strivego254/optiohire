@@ -148,13 +148,20 @@ if [ -f "$APP_DIR/backend/.env" ]; then
         echo -e "${GREEN}✅ SMTP credentials are configured${NC}"
         echo "  User: ${MAIL_USER:0:10}***"
         
-        # Check if it looks like an app password (16 chars, no spaces)
-        if [ ${#MAIL_PASS} -eq 16 ] && [[ "$MAIL_PASS" =~ ^[a-z]{4}[ ]?[a-z]{4}[ ]?[a-z]{4}[ ]?[a-z]{4}$ ]]; then
-            echo -e "${GREEN}✅ Password format looks like Gmail App Password${NC}"
-        else
-            echo -e "${YELLOW}⚠️  Password doesn't look like a Gmail App Password${NC}"
-            echo "   Gmail App Passwords are 16 characters (format: xxxx xxxx xxxx xxxx)"
-            echo "   If you're using your regular password, it won't work!"
+        # Check if it looks like an app password (16 chars, with or without spaces)
+        if [ -n "$MAIL_PASS" ]; then
+            # Remove spaces and check length
+            PASS_NO_SPACES=$(echo "$MAIL_PASS" | tr -d ' ')
+            PASS_LEN=${#PASS_NO_SPACES}
+            
+            if [ "$PASS_LEN" -eq 16 ]; then
+                echo -e "${GREEN}✅ Password format looks like Gmail App Password (16 characters)${NC}"
+            else
+                echo -e "${YELLOW}⚠️  Password doesn't look like a Gmail App Password${NC}"
+                echo "   Gmail App Passwords are 16 characters (format: xxxx xxxx xxxx xxxx)"
+                echo "   Current length: $PASS_LEN characters"
+                echo "   If you're using your regular password, it won't work!"
+            fi
         fi
     fi
 else
