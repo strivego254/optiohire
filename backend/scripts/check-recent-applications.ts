@@ -1,6 +1,6 @@
-import '../../utils/env.js'
-import { query } from '../../db/index.js'
-import { logger } from '../../utils/logger.js'
+import '../src/utils/env.js'
+import { query } from '../src/db/index.js'
+import { logger } from '../src/utils/logger.js'
 
 async function checkRecentApplications() {
   try {

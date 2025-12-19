@@ -47,20 +47,27 @@ echo "5️⃣ Checking Recent Applications (Last 10)..."
 echo "---------------------------------------------"
 cd ~/optiohire/backend
 if [ -f .env ]; then
+    # Source .env and export variables
+    set -a
     source .env
-    PGPASSWORD="$DATABASE_PASSWORD" psql -h "$DATABASE_HOST" -U "$DATABASE_USER" -d "$DATABASE_NAME" -c "
-        SELECT 
-            a.id,
-            a.created_at,
-            a.ai_status,
-            a.candidate_email,
-            j.title as job_title,
-            j.company_email
-        FROM applications a
-        JOIN job_postings j ON a.job_posting_id = j.id
-        ORDER BY a.created_at DESC
-        LIMIT 10;
-    " 2>/dev/null || echo "${YELLOW}⚠️ Could not query database${NC}"
+    set +a
+    if [ -n "$DATABASE_PASSWORD" ] && [ -n "$DATABASE_HOST" ] && [ -n "$DATABASE_USER" ] && [ -n "$DATABASE_NAME" ]; then
+        PGPASSWORD="$DATABASE_PASSWORD" psql -h "$DATABASE_HOST" -U "$DATABASE_USER" -d "$DATABASE_NAME" -c "
+            SELECT 
+                a.application_id,
+                a.created_at,
+                a.ai_status,
+                a.candidate_email,
+                jp.job_title,
+                jp.status as job_status
+            FROM applications a
+            JOIN job_postings jp ON a.job_posting_id = jp.job_posting_id
+            ORDER BY a.created_at DESC
+            LIMIT 10;
+        " 2>/dev/null || echo "${YELLOW}⚠️ Could not query database (check credentials)${NC}"
+    else
+        echo "${YELLOW}⚠️ Database credentials not found in .env${NC}"
+    fi
 else
     echo "${YELLOW}⚠️ .env file not found, cannot query database${NC}"
 fi
@@ -71,19 +78,25 @@ echo "6️⃣ Checking Active Job Postings..."
 echo "-----------------------------------"
 cd ~/optiohire/backend
 if [ -f .env ]; then
+    # Source .env and export variables
+    set -a
     source .env
-    PGPASSWORD="$DATABASE_PASSWORD" psql -h "$DATABASE_HOST" -U "$DATABASE_USER" -d "$DATABASE_NAME" -c "
-        SELECT 
-            id,
-            title,
-            company_email,
-            created_at,
-            status
-        FROM job_postings
-        WHERE status = 'ACTIVE'
-        ORDER BY created_at DESC
-        LIMIT 5;
-    " 2>/dev/null || echo "${YELLOW}⚠️ Could not query database${NC}"
+    set +a
+    if [ -n "$DATABASE_PASSWORD" ] && [ -n "$DATABASE_HOST" ] && [ -n "$DATABASE_USER" ] && [ -n "$DATABASE_NAME" ]; then
+        PGPASSWORD="$DATABASE_PASSWORD" psql -h "$DATABASE_HOST" -U "$DATABASE_USER" -d "$DATABASE_NAME" -c "
+            SELECT 
+                job_posting_id,
+                job_title,
+                status,
+                created_at
+            FROM job_postings
+            WHERE (status IS NULL OR UPPER(TRIM(status)) = 'ACTIVE' OR status = '')
+            ORDER BY created_at DESC
+            LIMIT 10;
+        " 2>/dev/null || echo "${YELLOW}⚠️ Could not query database (check credentials)${NC}"
+    else
+        echo "${YELLOW}⚠️ Database credentials not found in .env${NC}"
+    fi
 else
     echo "${YELLOW}⚠️ .env file not found, cannot query database${NC}"
 fi
