@@ -69,7 +69,7 @@ async function checkEmailMatching() {
         job_posting_id,
         candidate_name,
         email,
-        status,
+        ai_status as status,
         score,
         created_at
        FROM applications

@@ -204,21 +204,95 @@ export class EmailReader {
     logger.warn('📧 Email reader stopped monitoring inbox')
   }
 
+  /**
+   * Reconnect IMAP client if connection is lost
+   */
+  private async reconnect(): Promise<boolean> {
+    try {
+      logger.info('🔄 Attempting to reconnect IMAP client...')
+      
+      // Close existing connection if any
+      if (this.client) {
+        try {
+          await this.client.logout()
+        } catch (e) {
+          // Ignore logout errors
+        }
+        this.client = null
+      }
+      
+      // Get IMAP config
+      const imapHost = process.env.IMAP_HOST
+      const imapPort = parseInt(process.env.IMAP_PORT || '993', 10)
+      const imapUser = process.env.IMAP_USER
+      const imapPass = process.env.IMAP_PASS
+      const imapSecure = process.env.IMAP_SECURE !== 'false'
+      
+      if (!imapHost || !imapUser || !imapPass) {
+        logger.error('❌ IMAP credentials missing, cannot reconnect')
+        return false
+      }
+      
+      // Create new connection
+      this.client = new ImapFlow({
+        host: imapHost,
+        port: imapPort,
+        secure: imapSecure,
+        auth: {
+          user: imapUser,
+          pass: imapPass
+        },
+        logger: false // Disable IMAP library logging
+      })
+      
+      // Connect
+      await this.client.connect()
+      logger.info('✅ IMAP client reconnected successfully')
+      
+      // Ensure folders exist
+      await this.ensureFolders()
+      
+      return true
+    } catch (error: any) {
+      logger.error('❌ Failed to reconnect IMAP client:', error?.message || String(error))
+      this.client = null
+      return false
+    }
+  }
+
   private async processNewEmails() {
+    // Check if client exists and is connected
     if (!this.client) {
       logger.warn('⚠️ IMAP client not connected, attempting to reconnect...')
-      // Try to reconnect
-      if (emailReaderStatus.enabled && process.env.ENABLE_EMAIL_READER !== 'false') {
-        await this.start()
+      const reconnected = await this.reconnect()
+      if (!reconnected) {
+        return
       }
-      return
+    }
+    
+    // Verify connection is still alive
+    try {
+      // Try a simple operation to verify connection
+      if (!this.client || !this.client.authenticated) {
+        logger.warn('⚠️ IMAP client not authenticated, reconnecting...')
+        const reconnected = await this.reconnect()
+        if (!reconnected) {
+          return
+        }
+      }
+    } catch (error) {
+      logger.warn('⚠️ IMAP connection check failed, reconnecting...')
+      const reconnected = await this.reconnect()
+      if (!reconnected) {
+        return
+      }
     }
 
     try {
-      const lock = await this.client.getMailboxLock('INBOX')
+      const lock = await this.client!.getMailboxLock('INBOX')
       try {
         // Search for unseen emails
-        const messages = await this.client.search({
+        const messages = await this.client!.search({
           seen: false
         })
 
@@ -232,7 +306,7 @@ export class EmailReader {
 
         for (const seq of messages) {
           try {
-            const message = await this.client.fetchOne(seq, {
+            const message = await this.client!.fetchOne(seq, {
               source: true,
               envelope: true
             })
@@ -254,7 +328,7 @@ export class EmailReader {
                   
                   // Only mark as read if CV was successfully extracted
                   if (cvExtracted) {
-                    await this.client.messageFlagsAdd(seq, ['\\Seen'])
+                    await this.client!.messageFlagsAdd(seq, ['\\Seen'])
                     await this.moveToFolder(seq, 'Processed')
                     logger.info(`✅ Successfully processed email (CV extracted): ${subject}`)
                   } else {
@@ -306,9 +380,13 @@ export class EmailReader {
       logger.error('❌ Error accessing inbox:', errorMsg)
       
       // Check if it's a connection error
-      if (errorMsg.includes('Connection') || errorMsg.includes('ECONNRESET') || errorMsg.includes('ETIMEDOUT') || errorMsg.includes('ENOTFOUND')) {
+      if (errorMsg.includes('Connection') || errorMsg.includes('ECONNRESET') || errorMsg.includes('ETIMEDOUT') || errorMsg.includes('ENOTFOUND') || errorMsg.includes('not available')) {
         logger.warn('⚠️ IMAP connection lost, will attempt to reconnect on next check')
         emailReaderStatus.lastError = `Connection error: ${errorMsg}`
+        
+        // Mark client as disconnected
+        this.client = null
+        
         // Don't set running to false - let the reconnection logic handle it
       } else {
         emailReaderStatus.lastError = errorMsg
