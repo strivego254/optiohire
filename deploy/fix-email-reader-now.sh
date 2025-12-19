@@ -49,46 +49,41 @@ echo ""
 echo "Step 2: Updating PM2 configuration..."
 cd "$APP_DIR"
 
-# Create a wrapper script that loads .env and starts the server
-cat > "$APP_DIR/backend/start-with-env.sh" << 'EOF'
-#!/bin/bash
-# Wrapper script to ensure .env is loaded before starting server
-
-cd "$(dirname "$0")"
-
-# Load .env file explicitly
-if [ -f .env ]; then
-    export $(grep -v '^#' .env | grep -v '^$' | xargs)
-fi
-
-# Explicitly set email reader to enabled if not set
-export ENABLE_EMAIL_READER=${ENABLE_EMAIL_READER:-true}
-
-# Start the server
-exec node dist/server.js
-EOF
-
-chmod +x "$APP_DIR/backend/start-with-env.sh"
-echo "✅ Created wrapper script to load .env"
-echo ""
-
-# Step 3: Update ecosystem.config.js to use the wrapper
-echo "Step 3: Updating PM2 ecosystem config..."
-cd "$APP_DIR"
-
 # Backup original
-cp deploy/ecosystem.config.js deploy/ecosystem.config.js.backup
+cp deploy/ecosystem.config.js deploy/ecosystem.config.js.backup 2>/dev/null || true
 
-# Update the backend script to use wrapper and explicitly set ENABLE_EMAIL_READER
-cat > deploy/ecosystem.config.js << 'ECOSYSTEM_EOF'
-// PM2 Ecosystem Configuration for Production
-// This file is used by PM2 to manage both backend and frontend processes
-// Paths are dynamically resolved at runtime
+# Read current ecosystem config and update it
+NODE_SCRIPT=$(cat << 'NODE_EOF'
+const fs = require('fs');
+const path = require('path');
 
+const configPath = process.argv[2];
+const backendEnvPath = process.argv[3];
+
+// Read current config
+const config = require(configPath);
+
+// Update backend app config
+const backendApp = config.apps.find(app => app.name === 'optiohire-backend');
+if (backendApp) {
+  // Ensure ENABLE_EMAIL_READER is explicitly set to true
+  backendApp.env = backendApp.env || {};
+  backendApp.env.ENABLE_EMAIL_READER = 'true';
+  
+  // Keep env_file for other variables
+  backendApp.env_file = backendEnvPath;
+  
+  // Ensure script points to dist/server.js (not wrapper)
+  backendApp.script = path.join(backendApp.cwd || path.dirname(configPath) + '/backend', 'dist', 'server.js');
+  delete backendApp.interpreter; // Remove interpreter if it was set
+}
+
+// Write updated config
+fs.writeFileSync(configPath, `// PM2 Ecosystem Configuration for Production
+// Auto-updated to ensure email reader is enabled
 const path = require('path');
 const fs = require('fs');
 
-// Detect the application root directory
 const possibleRoots = [
   process.env.OPTIOHIRE_ROOT,
   process.cwd(),
@@ -115,12 +110,11 @@ const BACKEND_DIR = path.join(APP_ROOT, 'backend');
 const FRONTEND_DIR = path.join(APP_ROOT, 'frontend');
 const LOGS_DIR = process.env.HOME ? path.join(process.env.HOME, 'logs') : path.join(APP_ROOT, 'logs');
 
-// Ensure logs directory exists
 if (!fs.existsSync(LOGS_DIR)) {
   try {
     fs.mkdirSync(LOGS_DIR, { recursive: true });
   } catch (err) {
-    console.warn(`Warning: Could not create logs directory: ${LOGS_DIR}`);
+    console.warn(\`Warning: Could not create logs directory: \${LOGS_DIR}\`);
   }
 }
 
@@ -128,18 +122,15 @@ module.exports = {
   apps: [
     {
       name: 'optiohire-backend',
-      script: path.join(BACKEND_DIR, 'start-with-env.sh'),
-      interpreter: 'bash',
+      script: path.join(BACKEND_DIR, 'dist', 'server.js'),
       cwd: BACKEND_DIR,
       instances: 1,
       exec_mode: 'fork',
-      env_file: path.join(BACKEND_DIR, '.env'),
+      env_file: '${backendEnvPath}',
       env: {
         NODE_ENV: 'production',
         PORT: 3001,
-        // CRITICAL: Explicitly enable email reader
-        ENABLE_EMAIL_READER: 'true',
-        // IMPORTANT: All other secrets should be in backend/.env file
+        ENABLE_EMAIL_READER: 'true', // CRITICAL: Explicitly enabled
       },
       error_file: path.join(LOGS_DIR, 'backend-error.log'),
       out_file: path.join(LOGS_DIR, 'backend-out.log'),
@@ -187,9 +178,14 @@ module.exports = {
     },
   ],
 };
-ECOSYSTEM_EOF
+`);
+NODE_EOF
+)
 
-echo "✅ Updated PM2 ecosystem config"
+# Run Node script to update config
+node -e "$NODE_SCRIPT" "$APP_DIR/deploy/ecosystem.config.js" "$APP_DIR/backend/.env"
+
+echo "✅ Updated PM2 ecosystem config with ENABLE_EMAIL_READER=true"
 echo ""
 
 # Step 4: Restart backend with new configuration
