@@ -1,0 +1,30 @@
+[Unit]
+Description=OptioHire PM2 Process Manager
+Documentation=https://pm2.keymetrics.io/
+After=network.target
+
+[Service]
+Type=forking
+User=%i
+LimitNOFILE=infinity
+LimitNPROC=infinity
+PIDFile=%h/.pm2/pm2.pid
+Restart=on-failure
+RestartSec=10
+
+# Environment variables
+Environment=PM2_HOME=%h/.pm2
+Environment=NODE_ENV=production
+
+# Start PM2 daemon
+ExecStart=/usr/bin/pm2 resurrect
+ExecReload=/bin/kill -HUP $MAINPID
+ExecStop=/usr/bin/pm2 kill
+
+# Standard output/error
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+
