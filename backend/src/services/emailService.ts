@@ -3,13 +3,29 @@ import { logger } from '../utils/logger.js'
 import fs from 'fs/promises'
 import path from 'path'
 import { cleanJobTitle } from '../utils/jobTitle.js'
+import { SendGridService } from './sendGridService.js'
 
 export class EmailService {
-  private transporter: nodemailer.Transporter
+  private transporter: nodemailer.Transporter | null = null
+  private sendGridService: SendGridService | null = null
+  private useSendGrid: boolean
 
   private logFile: string
 
   constructor() {
+    // Check if SendGrid should be used (preferred - no firewall issues!)
+    this.useSendGrid = process.env.USE_SENDGRID === 'true' || !!process.env.SENDGRID_API_KEY
+    
+    if (this.useSendGrid) {
+      this.sendGridService = new SendGridService()
+      logger.info('Email service: Using SendGrid API (HTTPS - no firewall issues)')
+    } else {
+      // Fallback to SMTP
+      this.initSMTP()
+    }
+  }
+
+  private initSMTP() {
     const mailHost = process.env.MAIL_HOST || process.env.SMTP_HOST || 'smtp.gmail.com'
     const mailUser = process.env.MAIL_USER || process.env.SMTP_USER
     const mailPass = process.env.MAIL_PASS || process.env.SMTP_PASS
@@ -56,9 +72,18 @@ export class EmailService {
   }
 
   /**
-   * Verify SMTP connection and authentication
+   * Verify email service connection (SendGrid or SMTP)
    */
   async verifyConnection(): Promise<boolean> {
+    if (this.useSendGrid && this.sendGridService) {
+      return await this.sendGridService.verifyConnection()
+    }
+
+    // Verify SMTP connection
+    if (!this.transporter) {
+      return false
+    }
+
     try {
       await this.transporter.verify()
       logger.info('Email service: SMTP connection verified successfully')
@@ -73,6 +98,12 @@ export class EmailService {
         logger.error('2. Go to https://myaccount.google.com/apppasswords')
         logger.error('3. Generate an App Password for "Mail"')
         logger.error('4. Set MAIL_PASS or SMTP_PASS environment variable to the 16-character App Password')
+        logger.error('')
+        logger.error('OR use SendGrid (no firewall issues):')
+        logger.error('1. Sign up at https://sendgrid.com')
+        logger.error('2. Get API key from https://app.sendgrid.com/settings/api_keys')
+        logger.error('3. Set SENDGRID_API_KEY in .env')
+        logger.error('4. Set USE_SENDGRID=true in .env')
       }
       
       return false
@@ -595,7 +626,30 @@ HireBit System
     html: string
     text: string
     from?: string
+    fromName?: string
   }) {
+    // Use SendGrid if configured (preferred - no firewall issues)
+    if (this.useSendGrid && this.sendGridService) {
+      try {
+        await this.sendGridService.sendEmail({
+          to: data.to,
+          subject: data.subject,
+          html: data.html,
+          text: data.text,
+          from: data.from,
+          fromName: data.fromName
+        })
+        return
+      } catch (error: any) {
+        logger.error(`SendGrid failed, falling back to SMTP: ${error.message}`)
+        // Fallback to SMTP if SendGrid fails
+        if (!this.transporter) {
+          this.initSMTP()
+        }
+      }
+    }
+
+    // Use SMTP (fallback or if SendGrid not configured)
     try {
       const from = data.from || 'hirebitapplications@gmail.com'
       
