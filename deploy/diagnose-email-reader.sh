@@ -1,111 +1,89 @@
 #!/bin/bash
-
-# Diagnostic script to check email reader status on server
+# Comprehensive Email Reader Diagnostic Script
 
 echo "=========================================="
-echo "Email Reader Diagnostic Tool"
+echo "Email Reader Diagnostic Report"
 echo "=========================================="
 echo ""
 
-# 1. Check PM2 status
-echo "1. Checking PM2 processes..."
-pm2 list
+APP_DIR="$HOME/optiohire"
+[ ! -d "$APP_DIR" ] && APP_DIR="/opt/optiohire"
+
+# 1. Check PM2 Status
+echo "1. PM2 Backend Status:"
+echo "----------------------"
+pm2 list | grep optiohire-backend || echo "❌ Backend not running in PM2"
 echo ""
 
-# 2. Check backend health
-echo "2. Checking backend health endpoint..."
-curl -s http://localhost:3001/health || echo "❌ Backend not responding"
-echo ""
-
-# 3. Check email reader status
-echo "3. Checking email reader status..."
-curl -s http://localhost:3001/health/email-reader | jq '.' || curl -s http://localhost:3001/health/email-reader
-echo ""
-
-# 4. Check environment variables
-echo "4. Checking environment variables..."
-if [ -f "backend/.env" ]; then
-    echo "✅ backend/.env exists"
-    echo "ENABLE_EMAIL_READER=$(grep ENABLE_EMAIL_READER backend/.env | cut -d'=' -f2)"
-    echo "IMAP_POLL_MS=$(grep IMAP_POLL_MS backend/.env | cut -d'=' -f2)"
-    echo "IMAP_HOST=$(grep IMAP_HOST backend/.env | cut -d'=' -f2 | sed 's/.*/***hidden***/')"
-    echo "IMAP_USER=$(grep IMAP_USER backend/.env | cut -d'=' -f2 | sed 's/.*/***hidden***/')"
-    echo "IMAP_PASS=$(grep IMAP_PASS backend/.env | cut -d'=' -f2 | sed 's/.*/***hidden***/')"
+# 2. Check .env Configuration
+echo "2. Email Reader Configuration in .env:"
+echo "----------------------"
+if [ -f "$APP_DIR/backend/.env" ]; then
+    echo "ENABLE_EMAIL_READER:"
+    grep "^ENABLE_EMAIL_READER" "$APP_DIR/backend/.env" || echo "  ❌ NOT SET"
+    
+    echo ""
+    echo "IMAP Configuration:"
+    grep "^IMAP_" "$APP_DIR/backend/.env" | sed 's/=.*/=***/' || echo "  ❌ IMAP credentials not found"
+    
+    echo ""
+    echo "IMAP_POLL_MS:"
+    grep "^IMAP_POLL_MS" "$APP_DIR/backend/.env" || echo "  ⚠️  Not set (defaults to 1000ms)"
 else
-    echo "❌ backend/.env not found"
+    echo "❌ ERROR: backend/.env file not found!"
 fi
 echo ""
 
-# 5. Check recent logs
-echo "5. Recent email reader logs (last 30 lines)..."
-pm2 logs optiohire-backend --lines 30 --nostream | grep -i "email\|imap\|job\|match\|applicant" || echo "No relevant logs found"
+# 3. Check Backend Health
+echo "3. Backend Health Check:"
+echo "----------------------"
+if curl -f -s http://localhost:3001/health > /dev/null 2>&1; then
+    echo "✅ Backend is responding"
+else
+    echo "❌ Backend is NOT responding"
+fi
 echo ""
 
-# 6. Check database for active jobs
-echo "6. Checking active jobs in database..."
-cd backend
-if command -v node &> /dev/null; then
-    node -e "
-    require('dotenv').config();
-    const { Pool } = require('pg');
-    const pool = new Pool({
-        connectionString: process.env.DATABASE_URL,
-        ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false
-    });
-    pool.query('SELECT job_posting_id, job_title, status FROM job_postings ORDER BY created_at DESC LIMIT 5')
-        .then(res => {
-            console.log('Active jobs:');
-            res.rows.forEach(job => {
-                console.log(\`  - ID: \${job.job_posting_id}, Title: \"\${job.job_title}\", Status: \${job.status || 'NULL'}\`);
-            });
-            pool.end();
-        })
-        .catch(err => {
-            console.error('Database error:', err.message);
-            pool.end();
-        });
-    "
+# 4. Check Email Reader Status via API
+echo "4. Email Reader Status (from API):"
+echo "----------------------"
+EMAIL_STATUS=$(curl -s http://localhost:3001/health/email-reader 2>/dev/null)
+if [ $? -eq 0 ]; then
+    echo "$EMAIL_STATUS" | python3 -m json.tool 2>/dev/null || echo "$EMAIL_STATUS"
 else
-    echo "❌ Node.js not found"
+    echo "❌ Could not fetch email reader status"
 fi
-cd ..
 echo ""
 
-# 7. Check for recent applications
-echo "7. Checking recent applications..."
-cd backend
-if command -v node &> /dev/null; then
-    node -e "
-    require('dotenv').config();
-    const { Pool } = require('pg');
-    const pool = new Pool({
-        connectionString: process.env.DATABASE_URL,
-        ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false
-    });
-    pool.query('SELECT application_id, job_posting_id, candidate_name, email, status, created_at FROM applications ORDER BY created_at DESC LIMIT 5')
-        .then(res => {
-            console.log('Recent applications:');
-            if (res.rows.length === 0) {
-                console.log('  No applications found');
-            } else {
-                res.rows.forEach(app => {
-                    console.log(\`  - \${app.candidate_name} (\${app.email}) - Status: \${app.status || 'NULL'} - Created: \${app.created_at}\`);
-                });
-            }
-            pool.end();
-        })
-        .catch(err => {
-            console.error('Database error:', err.message);
-            pool.end();
-        });
-    "
-else
-    echo "❌ Node.js not found"
-fi
-cd ..
+# 5. Check Recent Backend Logs
+echo "5. Recent Backend Logs (Email Reader Related):"
+echo "----------------------"
+pm2 logs optiohire-backend --lines 50 --nostream 2>/dev/null | grep -i -E "email|imap|reader|ENABLE" | tail -20 || echo "No email-related logs found"
+echo ""
+
+# 6. Check if Email Reader Process is Running
+echo "6. Email Reader Process Check:"
+echo "----------------------"
+# Check if there are any IMAP connections or email processing
+pm2 logs optiohire-backend --lines 100 --nostream 2>/dev/null | grep -i "email reader\|monitoring inbox\|IMAP" | tail -5 || echo "No email reader activity found in logs"
+echo ""
+
+# 7. Check PM2 Environment Variables
+echo "7. PM2 Environment Variables:"
+echo "----------------------"
+pm2 env 0 2>/dev/null | grep -i "ENABLE_EMAIL_READER\|IMAP" || echo "No email-related env vars in PM2"
+echo ""
+
+# 8. Check for Errors
+echo "8. Recent Errors:"
+echo "----------------------"
+pm2 logs optiohire-backend --err --lines 20 --nostream 2>/dev/null | tail -10 || echo "No recent errors"
 echo ""
 
 echo "=========================================="
-echo "Diagnostic complete"
+echo "Diagnostic Complete"
 echo "=========================================="
-
+echo ""
+echo "If email reader is not enabled, run:"
+echo "  ./deploy/fix-email-reader-now.sh"
+echo ""
