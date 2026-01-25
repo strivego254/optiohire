@@ -1,0 +1,90 @@
+# Dependencies
+node_modules/
+node_modules/**
+/node_modules/
+**/node_modules/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+logs/
+*.log
+
+# Environment files - ALL variations
+.env
+.env.*
+.env.backup
+*.env.backup
+**/.env
+**/.env.local
+**/.env.*.local
+**/.env.backup
+**/*.env.backup
+backend/.env
+backend/.env.*
+backend/.env.backup
+frontend/.env.local
+frontend/.env
+!.env.example
+
+# Build outputs
+dist/
+**/dist/
+build/
+**/build/
+
+# Next.js
+.next/
+**/.next/
+out/
+*.tsbuildinfo
+**/*.tsbuildinfo
+
+# Coverage
+coverage/
+**/coverage/
+
+# Editor/OS
+.DS_Store
+.idea/
+.vscode/
+Thumbs.db
+
+# Dependencies
+node_modules/
+*/node_modules/
+/.pnp
+.pnp.js
+.yarn/install-state.gz
+
+# Production builds
+/dist
+/build
+/.next
+/out
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables
+.env
+.env.local
+.env.production
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+node_modules/
+.env
+dist/
+build/

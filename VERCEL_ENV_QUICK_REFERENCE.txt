@@ -1,0 +1,24 @@
+===========================================
+VERCEL ENVIRONMENT VARIABLES - QUICK REFERENCE
+===========================================
+
+Copy these into Vercel Dashboard → Settings → Environment Variables:
+
+1. DATABASE_URL
+   postgresql://postgres.[PROJECT_REF]:YOUR_PASSWORD_URL_ENCODED@aws-0-[REGION].pooler.supabase.com:6543/postgres
+
+2. DB_SSL
+   true
+
+3. JWT_SECRET
+   your_strong_jwt_secret_here
+
+===========================================
+STEPS:
+1. Go to Vercel Dashboard → Your Project → Settings → Environment Variables
+2. Add each variable above
+3. Select "Production", "Preview", and "Development" environments
+4. Save
+5. Redeploy your project
+
+===========================================
